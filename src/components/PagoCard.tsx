@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Switch,
+} from 'react-native';
 import { colors } from '@utils/colors';
 import { formatMoney, formatDate } from '@utils/formatting';
 import { CalendarioPago } from '@types/index';
@@ -17,92 +23,56 @@ export const PagoCard: React.FC<PagoCardProps> = ({
   onToggle,
   onDelete,
 }) => {
-  const isCompleted = pago.pago;
-  const backgroundColor = isCompleted ? colors.gray[100] : '#fff';
-  const borderColor = isCompleted ? colors.success : colors.warning;
+  const fechaPago = new Date(pago.fecha);
+  const hoy = new Date();
+  const diasRestantes = Math.ceil(
+    (fechaPago.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)
+  );
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { backgroundColor, borderLeftColor: borderColor }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={[
-            styles.checkbox,
-            isCompleted && styles.checkboxCompleted,
-          ]}
-          onPress={() => onToggle?.(!isCompleted)}
-        >
-          {isCompleted && <Text style={styles.checkmark}>✓</Text>}
-        </TouchableOpacity>
-        <View style={styles.content}>
-          <Text
-            style={[
-              styles.servicio,
-              isCompleted && styles.servicioCompleted,
-            ]}
-          >
-            {pago.servicio}
-          </Text>
-          <Text style={styles.fecha}>{formatDate(pago.fecha)}</Text>
-        </View>
-        <Text style={styles.monto}>{formatMoney(pago.monto)}</Text>
-      </View>
-      <View style={styles.footer}>
-        <Text style={[styles.estado, isCompleted && styles.estadoCompleted]}>
-          {isCompleted ? 'Pagado' : 'Pendiente'}
+    <View style={[styles.card, pago.pago && styles.completedCard]}>
+      <TouchableOpacity style={styles.content} onPress={onPress}>
+        <Text style={[styles.servicio, pago.pago && styles.completedText]}>
+          {pago.servicio}
         </Text>
-        {onDelete && (
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={onDelete}
-          >
-            <Text style={styles.deleteBtnText}>Eliminar</Text>
-          </TouchableOpacity>
+        <Text style={styles.fecha}>{formatDate(pago.fecha)}</Text>
+        {!pago.pago && diasRestantes > 0 && (
+          <Text style={styles.diasRestantes}>
+            {diasRestantes} día{diasRestantes !== 1 ? 's' : ''} restante{diasRestantes !== 1 ? 's' : ''}
+          </Text>
         )}
+      </TouchableOpacity>
+      <View style={styles.monto}>
+        <Text style={styles.montoText}>{formatMoney(pago.monto)}</Text>
       </View>
-    </TouchableOpacity>
+      {onToggle && (
+        <Switch
+          value={pago.pago}
+          onValueChange={onToggle}
+          trackColor={{ false: colors.gray[300], true: colors.success }}
+          thumbColor={pago.pago ? colors.success : colors.gray[400]}
+        />
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
+    padding: 12,
+    marginBottom: 8,
+    alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 2,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: colors.gray[300],
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkboxCompleted: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  checkmark: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14,
+  completedCard: {
+    backgroundColor: colors.gray[50],
   },
   content: {
     flex: 1,
@@ -111,43 +81,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.dark,
+    marginBottom: 4,
   },
-  servicioCompleted: {
-    color: colors.gray[500],
+  completedText: {
     textDecorationLine: 'line-through',
+    color: colors.gray[400],
   },
   fecha: {
     fontSize: 12,
     color: colors.gray[500],
-    marginTop: 2,
+    marginBottom: 2,
   },
-  monto: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.dark,
-    marginLeft: 8,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  estado: {
+  diasRestantes: {
     fontSize: 11,
     color: colors.warning,
-    fontWeight: '600',
-    textTransform: 'capitalize',
+    fontWeight: '500',
   },
-  estadoCompleted: {
-    color: colors.success,
+  monto: {
+    marginRight: 12,
   },
-  deleteBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  deleteBtnText: {
-    fontSize: 11,
-    color: colors.danger,
-    fontWeight: '600',
+  montoText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.dark,
   },
 });

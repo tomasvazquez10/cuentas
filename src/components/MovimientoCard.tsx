@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+} from 'react-native';
 import { colors } from '@utils/colors';
 import { formatMoney, formatDate } from '@utils/formatting';
 import { Movimiento } from '@types/index';
@@ -16,42 +22,28 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
   onDelete,
 }) => {
   const isIngreso = movimiento.tipo === 'ingreso';
-  const montoColor = isIngreso ? colors.ingresos : colors.egresos;
-  const subtypeColor = colors.subtypes[movimiento.subtipo] || colors.gray[500];
+  const color = isIngreso ? colors.ingresos : colors.egresos;
+  const sign = isIngreso ? '+' : '-';
 
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
-      activeOpacity={0.7}
+      onLongPress={onDelete}
+      delayLongPress={500}
     >
-      <View style={styles.header}>
-        <View style={[styles.badge, { backgroundColor: subtypeColor }]}>
-          <Text style={styles.badgeText}>
-            {movimiento.subtipo.charAt(0).toUpperCase()}
-          </Text>
-        </View>
-        <View style={styles.titleContainer}>
-          <Text style={styles.concepto}>{movimiento.concepto}</Text>
-          <Text style={styles.fecha}>{formatDate(movimiento.fecha)}</Text>
-        </View>
-        <Text style={[styles.monto, { color: montoColor }]}>
-          {isIngreso ? '+' : '-'} {formatMoney(movimiento.monto)}
-        </Text>
+      <View style={[styles.icon, { backgroundColor: color + '20' }]}>
+        <Text style={[styles.iconText, { color }]}>💰</Text>
       </View>
-      {movimiento.nota && (
-        <Text style={styles.nota}>{movimiento.nota}</Text>
-      )}
-      <View style={styles.footer}>
-        <Text style={styles.metodo}>{movimiento.metodo}</Text>
-        {onDelete && (
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={onDelete}
-          >
-            <Text style={styles.deleteBtnText}>Eliminar</Text>
-          </TouchableOpacity>
-        )}
+      <View style={styles.content}>
+        <Text style={styles.concepto}>{movimiento.concepto}</Text>
+        <Text style={styles.fecha}>{formatDate(movimiento.fecha)}</Text>
+        <Text style={styles.subtipo}>{movimiento.subtipo}</Text>
+      </View>
+      <View style={styles.amount}>
+        <Text style={[styles.monto, { color }]}>
+          {sign} {formatMoney(movimiento.monto)}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -59,24 +51,19 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primary,
+    padding: 12,
+    marginBottom: 8,
+    alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 2,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  badge: {
+  icon: {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -84,52 +71,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  badgeText: {
-    color: '#fff',
-    fontWeight: 'bold',
+  iconText: {
     fontSize: 18,
   },
-  titleContainer: {
+  content: {
     flex: 1,
   },
   concepto: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.dark,
+    marginBottom: 4,
   },
   fecha: {
     fontSize: 12,
     color: colors.gray[500],
-    marginTop: 2,
+    marginBottom: 2,
+  },
+  subtipo: {
+    fontSize: 11,
+    color: colors.gray[400],
+    textTransform: 'capitalize',
+  },
+  amount: {
+    alignItems: 'flex-end',
   },
   monto: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  nota: {
-    fontSize: 13,
-    color: colors.gray[600],
-    fontStyle: 'italic',
-    marginBottom: 8,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  metodo: {
-    fontSize: 11,
-    color: colors.gray[500],
-    textTransform: 'capitalize',
-  },
-  deleteBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  deleteBtnText: {
-    fontSize: 11,
-    color: colors.danger,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
