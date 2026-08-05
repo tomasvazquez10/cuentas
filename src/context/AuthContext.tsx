@@ -50,6 +50,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await authService.signIn(email, password);
       const currentUser = await authService.getCurrentUser();
       setUser(currentUser);
+    }catch (e: any) {
+      console.error("Login:", e);
+      alert(e.message);
     } finally {
       setIsLoading(false);
     }

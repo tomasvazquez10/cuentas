@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/stack';
+
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, Text } from 'react-native';
 import { authService } from '@services/auth';
 import { colors } from '@utils/colors';
 
@@ -11,8 +11,9 @@ import HomeScreen from '@screens/HomeScreen';
 import MovimientosScreen from '@screens/MovimientosScreen';
 import CalendarioScreen from '@screens/CalendarioScreen';
 import PerfilScreen from '@screens/PerfilScreen';
+import { createStackNavigator } from '@react-navigation/stack';
 
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
 function LoadingScreen() {
@@ -81,37 +82,28 @@ function AppTabs() {
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let mounted = true;
-
-    const initializeSession = async () => {
-      try {
-        const currentSession = await authService.getCurrentSession();
-        if (mounted) {
-          setSession(currentSession);
-        }
-      } catch (error) {
-        console.warn('Unable to load session', error);
-        if (mounted) {
-          setSession(null);
-        }
-      }
-    };
-
-    initializeSession();
-
-    const subscription = authService.onAuthStateChanged((nextSession) => {
-      if (mounted) {
-        setSession(nextSession);
-      }
+  authService
+    .getCurrentUser()
+    .then((user) => {
+      setSession(user);
+    })
+    .catch((e) => {
+      console.error(e);
+    })
+    .finally(() => {
+      setLoading(false);
     });
 
-    return () => {
-      mounted = false;
-      subscription?.unsubscribe();
-    };
+    const {
+      data: { subscription },
+      } = authService.onAuthStateChanged((user) => {
+      setSession(user);
+      });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   if (loading) {

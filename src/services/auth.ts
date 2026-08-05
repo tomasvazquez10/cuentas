@@ -1,33 +1,54 @@
-export interface AuthUser {
-  id: string;
-  email: string;
-  nombre?: string;
-}
+import { supabase } from '../lib/supabase';
 
 export const authService = {
-  async getCurrentUser(): Promise<AuthUser | null> {
-    return null;
+
+  async getCurrentUser() {
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error) throw error;
+
+    return data.user;
   },
 
-  async getCurrentSession(): Promise<null> {
-    return null;
+  async signIn(email: string, password: string) {
+    const { data, error } =
+      await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+    if (error) throw error;
+
+    return data.user;
   },
 
-  onAuthStateChanged(callback: (session: null) => void) {
-    return {
-      unsubscribe: () => undefined,
-    };
+  async signUp(email: string, password: string) {
+    const { data, error } =
+      await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+    if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+}
+
+    return data.user;
   },
 
-  async signIn(_email: string, _password: string): Promise<void> {
-    return;
+  async signOut() {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) throw error;
   },
 
-  async signUp(_email: string, _password: string, _nombre?: string): Promise<void> {
-    return;
-  },
+  onAuthStateChanged(callback: (user: any) => void) {
 
-  async signOut(): Promise<void> {
-    return;
-  },
+    return supabase.auth.onAuthStateChange((_event, session) => {
+      callback(session?.user ?? null);
+    });
+
+  }
+
 };
