@@ -81,21 +81,35 @@ function AppTabs() {
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Obtener sesión actual
-    authService.getCurrentSession().then((session) => {
-      setSession(session);
-      setLoading(false);
-    });
+    let mounted = true;
 
-    // Suscribirse a cambios de autenticación
-    const subscription = authService.onAuthStateChanged((session) => {
-      setSession(session);
+    const initializeSession = async () => {
+      try {
+        const currentSession = await authService.getCurrentSession();
+        if (mounted) {
+          setSession(currentSession);
+        }
+      } catch (error) {
+        console.warn('Unable to load session', error);
+        if (mounted) {
+          setSession(null);
+        }
+      }
+    };
+
+    initializeSession();
+
+    const subscription = authService.onAuthStateChanged((nextSession) => {
+      if (mounted) {
+        setSession(nextSession);
+      }
     });
 
     return () => {
+      mounted = false;
       subscription?.unsubscribe();
     };
   }, []);
