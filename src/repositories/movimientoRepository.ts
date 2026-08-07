@@ -4,12 +4,13 @@ import { supabase } from '../lib/supabase';
 export const movimientoRepository = {
 
 
-  async findAll() {
+  async findAll(userId: string) {
 
     const { data, error } =
       await supabase
         .from('movimientos')
         .select('*')
+        .eq('created_by', userId)
         .order('fecha', {
           ascending: false
         });
@@ -22,13 +23,14 @@ export const movimientoRepository = {
   },
 
 
-  async findById(id:string) {
+  async findById(id: string, userId: string) {
 
     const { data, error } =
       await supabase
         .from('movimientos')
         .select('*')
         .eq('id', id)
+        .eq('created_by', userId)
         .single();
 
 
@@ -57,8 +59,9 @@ export const movimientoRepository = {
 
 
   async update(
-    id:string,
-    movimiento:any
+    id: string,
+    movimiento: any,
+    userId: string
   ){
 
     const { data,error } =
@@ -66,6 +69,7 @@ export const movimientoRepository = {
         .from('movimientos')
         .update(movimiento)
         .eq('id',id)
+        .eq('created_by', userId)
         .select()
         .single();
 
@@ -77,13 +81,14 @@ export const movimientoRepository = {
   },
 
 
-  async delete(id:string){
+  async delete(id: string, userId: string) {
 
     const { error } =
       await supabase
         .from('movimientos')
         .delete()
-        .eq('id',id);
+        .eq('id', id)
+        .eq('created_by', userId);
 
 
     if(error) throw error;

@@ -1,9 +1,9 @@
 export const formatMoney = (value: number): string => {
-  return new Intl.NumberFormat('es-ES', {
-    style: 'currency',
-    currency: 'USD',
+  return `$ ${new Intl.NumberFormat('es-AR', {
+    style: 'decimal',
     minimumFractionDigits: 2,
-  }).format(value);
+    maximumFractionDigits: 2,
+  }).format(value)}`;
 };
 
 export const formatDate = (date: string | Date): string => {

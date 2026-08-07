@@ -16,6 +16,7 @@ interface ButtonProps {
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
+  color?: string;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -26,6 +27,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled = false,
   loading = false,
   fullWidth = false,
+  color,
 }) => {
   const getBackgroundColor = () => {
     switch (variant) {
@@ -64,7 +66,7 @@ export const Button: React.FC<ButtonProps> = ({
       style={[
         styles.button,
         {
-          backgroundColor: getBackgroundColor(),
+          backgroundColor: color ?? getBackgroundColor(),
           opacity: disabled || loading ? 0.6 : 1,
           width: fullWidth ? '100%' : 'auto',
           ...getSizeStyles(),
@@ -82,11 +84,13 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 8,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 46,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.1,
   },
 });

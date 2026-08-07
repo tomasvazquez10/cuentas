@@ -6,35 +6,24 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
-  FlatList,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors } from '@utils/colors';
+import { colors, getMetodoColor } from '@utils/colors';
 import { movimientoService } from '@services/movimientoService';
-import { calendarioPagoService } from '@services/calendarioPagoService';
-import { formatMoney } from '@utils/formatting';
-import { Button, StatCard, MovimientoCard, PagoCard } from '@components/index';
-import { Movimiento, CalendarioPago } from '@models/index';
+import { StatCard } from '@components/index';
+import { Movimiento, MetodoMovimiento } from '@models/index';
 
-export default function HomeScreen({ navigation }: any) {
+const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
+
+export default function HomeScreen() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
-  const [pagos, setPagos] = useState<CalendarioPago[]>([]);
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
     try {
-      setLoading(true);
-      const [movsData, pagosData] = await Promise.all([
-        movimientoService.listar(),
-        calendarioPagoService.pendientes(),
-      ]);
-      setMovimientos(movsData.slice(0, 5)); // Últimos 5 movimientos
-      setPagos(pagosData.slice(0, 3)); // Próximos 3 pagos
+      setMovimientos(await movimientoService.listar());
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los datos');
-    } finally {
-      setLoading(false);
+      Alert.alert('Error', 'No se pudieron cargar los balances');
     }
   };
 
@@ -50,17 +39,14 @@ export default function HomeScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
-  const calcularTotales = () => {
-    const ingresos = movimientos
-      .filter((m) => m.tipo === 'ingreso')
-      .reduce((sum, m) => sum + m.monto, 0);
-    const egresos = movimientos
-      .filter((m) => m.tipo === 'egreso')
-      .reduce((sum, m) => sum + m.monto, 0);
-    return { ingresos, egresos, balance: ingresos - egresos };
-  };
+  const calcularBalance = (items: Movimiento[]) =>
+    items.reduce(
+      (balance, movimiento) =>
+        balance + (movimiento.tipo === 'ENTRADA' ? movimiento.monto : -movimiento.monto),
+      0
+    );
 
-  const { ingresos, egresos, balance } = calcularTotales();
+  const balanceGeneral = calcularBalance(movimientos);
 
   return (
     <ScrollView
@@ -70,79 +56,32 @@ export default function HomeScreen({ navigation }: any) {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Resumen Financiero</Text>
+        <Text style={styles.eyebrow}>TU PANORAMA</Text>
+        <Text style={styles.headerTitle}>Resumen financiero</Text>
+        <Text style={styles.headerSubtitle}>
+          Tus saldos organizados por metodo de pago.
+        </Text>
       </View>
 
-      {/* Tarjetas de estadísticas */}
       <View style={styles.statsContainer}>
-        <StatCard label="Ingresos" value={ingresos} type="ingreso" />
-        <StatCard label="Egresos" value={egresos} type="egreso" />
-        <StatCard label="Balance" value={balance} type="neutral" />
+        <Text style={styles.sectionTitle}>Balance general</Text>
+        <StatCard label="Saldo disponible" value={balanceGeneral} type="neutral" />
       </View>
 
-      {/* Pagos próximos */}
-      {pagos.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pagos Próximos</Text>
-            <Text
-              style={styles.seeAll}
-              onPress={() => navigation.navigate('Calendario')}
-            >
-              Ver todos
-            </Text>
-          </View>
-          {pagos.map((pago) => (
-            <PagoCard
-              key={pago.id}
-              pago={pago}
-              onPress={() => navigation.navigate('Calendario', { pagoId: pago.id })}
-            />
-          ))}
-        </View>
-      )}
-
-      {/* Últimos movimientos */}
-      {movimientos.length > 0 && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Últimos Movimientos</Text>
-            <Text
-              style={styles.seeAll}
-              onPress={() => navigation.navigate('Movimientos')}
-            >
-              Ver todos
-            </Text>
-          </View>
-          {movimientos.map((mov) => (
-            <MovimientoCard
-              key={mov.id}
-              movimiento={mov}
-              onPress={() =>
-                navigation.navigate('Movimientos', { movId: mov.id })
-              }
-            />
-          ))}
-        </View>
-      )}
-
-      {/* Botones de acción rápida */}
-      <View style={styles.actionButtons}>
-        <Button
-          title="+ Nuevo Gasto"
-          onPress={() => navigation.navigate('Movimientos')}
-          variant="primary"
-          fullWidth
-        />
-        <Button
-          title="+ Nuevo Pago"
-          onPress={() => navigation.navigate('Calendario')}
-          variant="success"
-          fullWidth
-        />
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Por metodo de pago</Text>
+        {METODOS.map((metodo) => (
+          <StatCard
+            key={metodo}
+            label={metodo}
+            value={calcularBalance(
+              movimientos.filter((movimiento) => movimiento.metodo === metodo)
+            )}
+            type="neutral"
+            color={getMetodoColor(metodo)}
+          />
+        ))}
       </View>
-
-      <View style={styles.spacer} />
     </ScrollView>
   );
 }
@@ -155,44 +94,41 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingTop: 40,
+    paddingBottom: 30,
+    paddingTop: 52,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  eyebrow: {
+    color: '#DCD8FF',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginBottom: 8,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
     color: '#fff',
+  },
+  headerSubtitle: {
+    color: '#DCD8FF',
+    fontSize: 14,
+    marginTop: 8,
   },
   statsContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingTop: 20,
   },
   section: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
+    paddingTop: 10,
+    paddingBottom: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 19,
+    fontWeight: '800',
     color: colors.dark,
-  },
-  seeAll: {
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  actionButtons: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 12,
-  },
-  spacer: {
-    height: 40,
+    marginBottom: 12,
   },
 });

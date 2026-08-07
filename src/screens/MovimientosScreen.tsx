@@ -6,23 +6,31 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
-  FlatList,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors } from '@utils/colors';
+import { colors, getMetodoColor } from '@utils/colors';
 import { movimientoService } from '@services/movimientoService';
-import { Button, Input, CustomModal, MovimientoCard } from '@components/index';
+import { Button, Input, CustomModal, MovimientoCard, StatCard } from '@components/index';
 import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
 
-const SUBTIPOS: SubtipoMovimiento[] = ['FIJO', 'BOLUDES', 'OTRO', 'DOLAR', 'CEDEARS', 'DEPTO', 'SUPER', 'SALIDAS', 'SUELDO', 'BONO'];
+const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
+  ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
+  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER'],
+  AHORRO: ['DOLAR'],
+  INVERSION: ['CEDEARS'],
+};
 
 const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
+type FiltroMetodo = 'GENERAL' | MetodoMovimiento;
 
 export default function MovimientosScreen() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<Movimiento | null>(null);
+  const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [tipo, setTipo] = useState<TipoMovimiento>('GASTO');
   const [subtipo, setSubtipo] = useState<SubtipoMovimiento>('SUPER');
   const [metodo, setMetodo] = useState<MetodoMovimiento>('EFECTIVO');
@@ -30,6 +38,10 @@ export default function MovimientosScreen() {
   const [monto, setMonto] = useState('');
   const [nota, setNota] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [mesSeleccionado, setMesSeleccionado] = useState(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  );
+  const [filtroMetodo, setFiltroMetodo] = useState<FiltroMetodo>('GENERAL');
 
   const loadMovimientos = async () => {
     try {
@@ -65,6 +77,57 @@ export default function MovimientosScreen() {
     setFecha(new Date().toISOString().split('T')[0]);
   };
 
+  const cerrarModal = () => {
+    setModalVisible(false);
+    setMovimientoSeleccionado(null);
+    setConfirmandoBorrado(false);
+    resetForm();
+  };
+
+  const abrirEdicion = (movimiento: Movimiento) => {
+    setMovimientoSeleccionado(movimiento);
+    setTipo(movimiento.tipo as TipoMovimiento);
+    setSubtipo(movimiento.subtipo as SubtipoMovimiento);
+    setMetodo(movimiento.metodo as MetodoMovimiento);
+    setConcepto(movimiento.concepto);
+    setMonto(String(movimiento.monto));
+    setNota(movimiento.nota ?? '');
+    setFecha(movimiento.fecha.slice(0, 10));
+    setConfirmandoBorrado(false);
+    setModalVisible(true);
+  };
+
+  const handleTipoChange = (nuevoTipo: TipoMovimiento) => {
+    setTipo(nuevoTipo);
+    setSubtipo(SUBTIPOS_POR_TIPO[nuevoTipo][0]);
+  };
+
+  const cambiarMes = (desplazamiento: number) => {
+    setMesSeleccionado((mes) =>
+      new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1)
+    );
+  };
+
+  const claveMesSeleccionado = `${mesSeleccionado.getFullYear()}-${String(
+    mesSeleccionado.getMonth() + 1
+  ).padStart(2, '0')}`;
+  const movimientosDelMes = movimientos.filter((movimiento) =>
+    movimiento.fecha.slice(0, 7) === claveMesSeleccionado
+  );
+  const movimientosFiltrados = movimientosDelMes.filter(
+    (movimiento) =>
+      filtroMetodo === 'GENERAL' || movimiento.metodo === filtroMetodo
+  );
+  const balanceFiltrado = movimientosFiltrados.reduce(
+    (balance, movimiento) =>
+      balance + (movimiento.tipo === 'ENTRADA' ? movimiento.monto : -movimiento.monto),
+    0
+  );
+  const tituloMes = mesSeleccionado.toLocaleDateString('es-AR', {
+    month: 'long',
+    year: 'numeric',
+  });
+
   const handleCreateMovimiento = async () => {
     if (!concepto || !monto) {
       Alert.alert('Error', 'Completa los campos requeridos');
@@ -90,6 +153,37 @@ export default function MovimientosScreen() {
     }
   };
 
+  const handleUpdateMovimiento = async () => {
+    if (!movimientoSeleccionado || !concepto || !monto) {
+      Alert.alert('Error', 'Completa los campos requeridos');
+      return;
+    }
+
+    try {
+      const movimientoActualizado = await movimientoService.actualizar(
+        movimientoSeleccionado.id,
+        {
+          fecha,
+          tipo,
+          subtipo,
+          concepto,
+          metodo,
+          monto: parseFloat(monto),
+          nota: nota || undefined,
+        }
+      );
+      setMovimientos(
+        movimientos.map((movimiento) =>
+          movimiento.id === movimientoActualizado.id ? movimientoActualizado : movimiento
+        )
+      );
+      cerrarModal();
+      Alert.alert('Exito', 'Movimiento actualizado correctamente');
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo actualizar el movimiento');
+    }
+  };
+
   const handleDeleteMovimiento = async (id: string) => {
     Alert.alert('Eliminar', '¿Estás seguro de que deseas eliminar este movimiento?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -99,6 +193,9 @@ export default function MovimientosScreen() {
           try {
             await movimientoService.eliminar(id);
             setMovimientos(movimientos.filter((m) => m.id !== id));
+            if (movimientoSeleccionado?.id === id) {
+              cerrarModal();
+            }
             Alert.alert('Éxito', 'Movimiento eliminado');
           } catch (error) {
             Alert.alert('Error', 'No se pudo eliminar el movimiento');
@@ -109,6 +206,22 @@ export default function MovimientosScreen() {
     ]);
   };
 
+  const eliminarDesdeEdicion = async () => {
+    if (!movimientoSeleccionado) return;
+
+    const id = movimientoSeleccionado.id;
+    try {
+      await movimientoService.eliminar(id);
+      setMovimientos((movimientosActuales) =>
+        movimientosActuales.filter((movimiento) => movimiento.id !== id)
+      );
+      cerrarModal();
+      Alert.alert('Exito', 'Movimiento eliminado');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo eliminar el movimiento');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -117,19 +230,80 @@ export default function MovimientosScreen() {
         }
       >
         <View style={styles.header}>
+          <Text style={styles.headerKicker}>HISTORIAL</Text>
           <Text style={styles.headerTitle}>Movimientos</Text>
+          <Text style={styles.headerSubtitle}>Tus ingresos y gastos, ordenados.</Text>
         </View>
 
-        {movimientos.length === 0 ? (
+        <View style={styles.monthSelector}>
+          <TouchableOpacity
+            accessibilityLabel="Mes anterior"
+            onPress={() => cambiarMes(-1)}
+            style={styles.monthButton}
+          >
+            <Text style={styles.monthButtonText}>‹</Text>
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.monthLabel}>MES SELECCIONADO</Text>
+            <Text style={styles.monthTitle}>{tituloMes}</Text>
+          </View>
+          <TouchableOpacity
+            accessibilityLabel="Mes siguiente"
+            onPress={() => cambiarMes(1)}
+            style={styles.monthButton}
+          >
+            <Text style={styles.monthButtonText}>›</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.filtersContainer}>
+          <Text style={styles.filterLabel}>METODO DE PAGO</Text>
+          <View style={styles.filterOptions}>
+            {(['GENERAL', ...METODOS] as FiltroMetodo[]).map((opcion) => (
+              <TouchableOpacity
+                key={opcion}
+                onPress={() => setFiltroMetodo(opcion)}
+                style={[
+                  styles.filterOption,
+                  filtroMetodo === opcion && styles.filterOptionSelected,
+                  filtroMetodo === opcion && opcion !== 'GENERAL' && {
+                    backgroundColor: getMetodoColor(opcion),
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterOptionText,
+                    filtroMetodo === opcion && styles.filterOptionTextSelected,
+                    filtroMetodo === opcion && opcion === 'MERCADOPAGO' && styles.filterOptionTextDark,
+                  ]}
+                >
+                  {opcion === 'GENERAL' ? 'General' : opcion}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.balanceContainer}>
+          <StatCard
+            label={filtroMetodo === 'GENERAL' ? 'Balance del mes' : `Balance ${filtroMetodo}`}
+            value={balanceFiltrado}
+            type="neutral"
+          />
+        </View>
+
+        {movimientosFiltrados.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No hay movimientos</Text>
+            <Text style={styles.emptyText}>No hay movimientos para este filtro</Text>
           </View>
         ) : (
           <View style={styles.listContainer}>
-            {movimientos.map((mov) => (
+            {movimientosFiltrados.map((mov) => (
               <MovimientoCard
                 key={mov.id}
                 movimiento={mov}
+                onPress={() => abrirEdicion(mov)}
                 onDelete={() => handleDeleteMovimiento(mov.id)}
               />
             ))}
@@ -137,36 +311,34 @@ export default function MovimientosScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.buttonContainer}>
-        <Button
-          title="+ Nuevo Movimiento"
-          onPress={() => setModalVisible(true)}
-          variant="primary"
-          fullWidth
-          size="large"
-        />
+      <View style={styles.fabContainer}>
+        <TouchableOpacity
+          accessibilityLabel="Nuevo movimiento"
+          onPress={() => {
+            setMovimientoSeleccionado(null);
+            resetForm();
+            setModalVisible(true);
+          }}
+          style={styles.fab}
+        >
+          <Text style={styles.fabText}>+</Text>
+        </TouchableOpacity>
       </View>
 
       <CustomModal
         visible={modalVisible}
-        title="Nuevo Movimiento"
-        onClose={() => {
-          setModalVisible(false);
-          resetForm();
-        }}
+        title={movimientoSeleccionado ? 'Editar Movimiento' : 'Nuevo Movimiento'}
+        onClose={cerrarModal}
         footer={
           <View style={styles.modalFooter}>
             <Button
               title="Cancelar"
-              onPress={() => {
-                setModalVisible(false);
-                resetForm();
-              }}
+              onPress={cerrarModal}
               variant="secondary"
             />
             <Button
-              title="Crear"
-              onPress={handleCreateMovimiento}
+              title={movimientoSeleccionado ? 'Guardar' : 'Crear'}
+              onPress={movimientoSeleccionado ? handleUpdateMovimiento : handleCreateMovimiento}
               variant="primary"
             />
           </View>
@@ -177,14 +349,26 @@ export default function MovimientosScreen() {
           <View style={styles.typeButtons}>
             <Button
               title="Entrada"
-              onPress={() => setTipo('ENTRADA')}
+              onPress={() => handleTipoChange('ENTRADA')}
               variant={tipo === 'ENTRADA' ? 'success' : 'secondary'}
               size="small"
             />
             <Button
               title="Gasto"
-              onPress={() => setTipo('GASTO')}
+              onPress={() => handleTipoChange('GASTO')}
               variant={tipo === 'GASTO' ? 'danger' : 'secondary'}
+              size="small"
+            />
+            <Button
+              title="Ahorro"
+              onPress={() => handleTipoChange('AHORRO')}
+              variant={tipo === 'AHORRO' ? 'danger' : 'secondary'}
+              size="small"
+            />
+            <Button
+              title="Inversión"
+              onPress={() => handleTipoChange('INVERSION')}
+              variant={tipo === 'INVERSION' ? 'danger' : 'secondary'}
               size="small"
             />
           </View>
@@ -213,7 +397,7 @@ export default function MovimientosScreen() {
 
           <Text style={styles.label}>Categoría</Text>
           <View style={styles.optionsContainer}>
-            {SUBTIPOS.map((s) => (
+            {SUBTIPOS_POR_TIPO[tipo].map((s) => (
               <Button
                 key={s}
                 title={s}
@@ -232,6 +416,7 @@ export default function MovimientosScreen() {
                 title={m}
                 onPress={() => setMetodo(m)}
                 variant={metodo === m ? 'primary' : 'secondary'}
+                color={metodo === m ? getMetodoColor(m) : undefined}
                 size="small"
               />
             ))}
@@ -245,6 +430,40 @@ export default function MovimientosScreen() {
             multiline
             numberOfLines={3}
           />
+
+          {movimientoSeleccionado && (
+            <View style={styles.deleteSection}>
+              {confirmandoBorrado ? (
+                <View style={styles.deleteWarning}>
+                  <Text style={styles.deleteWarningTitle}>Eliminar movimiento?</Text>
+                  <Text style={styles.deleteWarningText}>
+                    Esta accion no se puede deshacer.
+                  </Text>
+                  <View style={styles.deleteActions}>
+                    <TouchableOpacity
+                      onPress={() => setConfirmandoBorrado(false)}
+                      style={styles.deleteCancelButton}
+                    >
+                      <Text style={styles.deleteCancelText}>Cancelar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => void eliminarDesdeEdicion()}
+                      style={styles.deleteConfirmButton}
+                    >
+                      <Text style={styles.deleteConfirmText}>Si, eliminar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => setConfirmandoBorrado(true)}
+                  style={styles.deleteButton}
+                >
+                  <Text style={styles.deleteButtonText}>Borrar movimiento</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
       </CustomModal>
     </View>
@@ -259,17 +478,105 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingTop: 40,
+    paddingBottom: 26,
+    paddingTop: 52,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
     color: '#fff',
   },
+  headerKicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
+  headerSubtitle: { color: '#DCD8FF', fontSize: 14, marginTop: 8 },
   listContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginTop: 18,
+    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    elevation: 2,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 9,
+  },
+  filtersContainer: {
+    marginHorizontal: 20,
+    marginTop: 18,
+  },
+  filterLabel: {
+    color: colors.gray[500],
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 9,
+  },
+  filterOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  filterOption: {
+    backgroundColor: colors.gray[100],
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+  },
+  filterOptionSelected: {
+    backgroundColor: colors.primary,
+  },
+  filterOptionText: {
+    color: colors.gray[600],
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterOptionTextSelected: {
+    color: '#fff',
+  },
+  filterOptionTextDark: {
+    color: colors.dark,
+  },
+  balanceContainer: {
+    marginTop: 18,
+    marginHorizontal: 20,
+  },
+  monthButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthButtonText: {
+    color: colors.primary,
+    fontSize: 28,
+    fontWeight: '500',
+    lineHeight: 31,
+  },
+  monthLabel: {
+    color: colors.gray[500],
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+  },
+  monthTitle: {
+    color: colors.dark,
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 3,
+    textAlign: 'center',
+    textTransform: 'capitalize',
   },
   emptyContainer: {
     flex: 1,
@@ -281,13 +588,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.gray[500],
   },
-  buttonContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: colors.gray[200],
+  fabContainer: { position: 'absolute', right: 20, bottom: 20 },
+  fab: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    elevation: 8,
+    shadowColor: colors.dark,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
+  fabText: { color: '#fff', fontSize: 32, fontWeight: '400', lineHeight: 36 },
   label: {
     fontSize: 14,
     fontWeight: '600',
@@ -297,6 +612,7 @@ const styles = StyleSheet.create({
   },
   typeButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
   },
@@ -309,5 +625,65 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     gap: 8,
+  },
+  deleteSection: {
+    marginTop: 12,
+    marginBottom: 24,
+  },
+  deleteButton: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    paddingVertical: 13,
+  },
+  deleteButtonText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  deleteWarning: {
+    backgroundColor: '#FFF1F2',
+    borderRadius: 16,
+    padding: 16,
+  },
+  deleteWarningTitle: {
+    color: colors.danger,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  deleteWarningText: {
+    color: colors.gray[600],
+    fontSize: 13,
+    marginTop: 5,
+  },
+  deleteActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  deleteCancelButton: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 11,
+  },
+  deleteCancelText: {
+    color: colors.gray[600],
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: colors.danger,
+    borderRadius: 12,
+    paddingVertical: 11,
+  },
+  deleteConfirmText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

@@ -1,5 +1,12 @@
 import { calendarioPagoRepository }
 from '@repositories/calendarioPagoRepository';
+import { authRepository } from '@repositories/authRepository';
+
+const getAuthenticatedUserId = async () => {
+  const user = await authRepository.currentUser();
+  if (!user) throw new Error('Debes iniciar sesion para ver tus pagos');
+  return user.id;
+};
 
 
 export const calendarioPagoService = {
@@ -7,14 +14,14 @@ export const calendarioPagoService = {
 
  async listar(){
 
-   return calendarioPagoRepository.findAll();
+   return calendarioPagoRepository.findAll(await getAuthenticatedUserId());
 
  },
 
 
  async pendientes(){
 
-   return calendarioPagoRepository.findPendientes();
+   return calendarioPagoRepository.findPendientes(await getAuthenticatedUserId());
 
  },
 
@@ -33,7 +40,10 @@ export const calendarioPagoService = {
       );
 
 
-   return calendarioPagoRepository.create(data);
+   return calendarioPagoRepository.create({
+     ...data,
+     created_by: await getAuthenticatedUserId(),
+   });
 
  },
 
@@ -43,24 +53,22 @@ export const calendarioPagoService = {
    data:any
  ){
 
-   return calendarioPagoRepository.update(
-     id,
-     data
-   );
+   const { created_by, ...pago } = data;
+   return calendarioPagoRepository.update(id, pago, await getAuthenticatedUserId());
 
  },
 
 
  async eliminar(id:string){
 
-   return calendarioPagoRepository.delete(id);
+   return calendarioPagoRepository.delete(id, await getAuthenticatedUserId());
 
  },
 
 
  async marcarPagado(id:string){
 
-   return calendarioPagoRepository.marcarPagado(id);
+   return calendarioPagoRepository.marcarPagado(id, await getAuthenticatedUserId());
 
  }
 

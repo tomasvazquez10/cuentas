@@ -1,16 +1,20 @@
 import { movimientoRepository } from '@repositories/movimientoRepository';
 import { calendarioPagoRepository } from '@repositories/calendarioPagoRepository';
+import { authRepository } from '@repositories/authRepository';
 
 export const dashboardService = {
 
   async resumen() {
 
+    const user = await authRepository.currentUser();
+    if (!user) throw new Error('Debes iniciar sesion para ver el resumen');
+
     const [
       movimientos,
       pagos
     ] = await Promise.all([
-      movimientoRepository.findAll(),
-      calendarioPagoRepository.findPendientes()
+      movimientoRepository.findAll(user.id),
+      calendarioPagoRepository.findPendientes(user.id)
     ]);
 
     const ingresos = movimientos
@@ -18,7 +22,7 @@ export const dashboardService = {
       .reduce((total, m) => total + Number(m.monto), 0);
 
     const gastos = movimientos
-      .filter(m => m.tipo === 'GASTO')
+      .filter(m => m.tipo !== 'ENTRADA')
       .reduce((total, m) => total + Number(m.monto), 0);
 
     return {

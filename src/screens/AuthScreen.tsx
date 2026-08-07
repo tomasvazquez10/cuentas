@@ -178,15 +178,15 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 34,
   },
   logo: {
     fontSize: 60,
     marginBottom: 16,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 34,
+    fontWeight: '800',
     color: colors.dark,
   },
   subtitle: {
@@ -196,8 +196,13 @@ const styles = StyleSheet.create({
   },
   form: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 22,
+    elevation: 4,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
   },
   footer: {
     flexDirection: 'row',

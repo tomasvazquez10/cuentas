@@ -1,13 +1,19 @@
 import { movimientoRepository } 
 from '@repositories/movimientoRepository';
+import { authRepository } from '@repositories/authRepository';
+
+const getAuthenticatedUserId = async () => {
+  const user = await authRepository.currentUser();
+  if (!user) throw new Error('Debes iniciar sesion para ver tus movimientos');
+  return user.id;
+};
 
 
 export const movimientoService = {
 
 
  async listar(){
-
-   return movimientoRepository.findAll();
+   return movimientoRepository.findAll(await getAuthenticatedUserId());
 
  },
 
@@ -26,7 +32,10 @@ export const movimientoService = {
       throw new Error('Monto requerido');
 
 
-   return movimientoRepository.create(data);
+   return movimientoRepository.create({
+     ...data,
+     created_by: await getAuthenticatedUserId(),
+   });
 
  },
 
@@ -36,17 +45,15 @@ export const movimientoService = {
     data:any
  ){
 
-   return movimientoRepository.update(
-      id,
-      data
-   );
+   const { created_by, ...movimiento } = data;
+   return movimientoRepository.update(id, movimiento, await getAuthenticatedUserId());
 
  },
 
 
  async eliminar(id:string){
 
-   return movimientoRepository.delete(id);
+   return movimientoRepository.delete(id, await getAuthenticatedUserId());
 
  },
 
@@ -54,13 +61,13 @@ export const movimientoService = {
  async balance(){
 
    const movimientos =
-      await movimientoRepository.findAll();
+      await movimientoRepository.findAll(await getAuthenticatedUserId());
 
 
    const ingresos =
       movimientos
       .filter(
-        m=>m.tipo==='INGRESO'
+        m=>m.tipo==='ENTRADA'
       )
       .reduce(
         (sum,m)=>sum+Number(m.monto),
@@ -70,9 +77,7 @@ export const movimientoService = {
 
    const gastos =
       movimientos
-      .filter(
-        m=>m.tipo==='GASTO'
-      )
+      .filter(m=>m.tipo!=='ENTRADA')
       .reduce(
         (sum,m)=>sum+Number(m.monto),
         0

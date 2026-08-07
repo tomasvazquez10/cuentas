@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { colors } from '@utils/colors';
+import { colors, getMetodoColor } from '@utils/colors';
 import { formatMoney, formatDate } from '@utils/formatting';
 import { Movimiento } from '@models/index';
 
@@ -21,8 +21,9 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
   onPress,
   onDelete,
 }) => {
-  const isIngreso = movimiento.tipo === 'ingreso';
+  const isIngreso = movimiento.tipo === 'ENTRADA';
   const color = isIngreso ? colors.ingresos : colors.egresos;
+  const metodoColor = getMetodoColor(movimiento.metodo);
   const sign = isIngreso ? '+' : '-';
 
   return (
@@ -32,7 +33,7 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
       onLongPress={onDelete}
       delayLongPress={500}
     >
-      <View style={[styles.icon, { backgroundColor: color + '20' }]}>
+      <View style={[styles.icon, { backgroundColor: metodoColor + '20' }]}>
         <Text style={[styles.iconText, { color }]}>💰</Text>
       </View>
       <View style={styles.content}>
@@ -53,20 +54,20 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 10,
     alignItems: 'center',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 9,
   },
   icon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

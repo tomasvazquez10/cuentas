@@ -3,11 +3,12 @@ import { supabase } from '../lib/supabase';
 export const calendarioPagoRepository = {
 
 
- async findAll(){
+ async findAll(userId: string){
 
    const {data,error}=await supabase
      .from('calendario_pagos')
      .select('*')
+     .eq('created_by', userId)
      .order('fecha');
 
 
@@ -19,11 +20,12 @@ export const calendarioPagoRepository = {
  },
 
 
- async findPendientes(){
+ async findPendientes(userId: string){
 
    const {data,error}=await supabase
      .from('calendario_pagos')
      .select('*')
+     .eq('created_by', userId)
      .eq('pago',false)
      .order('fecha');
 
@@ -55,13 +57,15 @@ export const calendarioPagoRepository = {
 
  async update(
     id:string,
-    pago:any
+    pago:any,
+    userId: string
  ){
 
    const {data,error}=await supabase
      .from('calendario_pagos')
      .update(pago)
      .eq('id',id)
+     .eq('created_by', userId)
      .select()
      .single();
 
@@ -74,12 +78,13 @@ export const calendarioPagoRepository = {
  },
 
 
- async delete(id:string){
+ async delete(id:string, userId: string){
 
    const {error}=await supabase
      .from('calendario_pagos')
      .delete()
-     .eq('id',id);
+     .eq('id',id)
+     .eq('created_by', userId);
 
 
    if(error) throw error;
@@ -87,13 +92,12 @@ export const calendarioPagoRepository = {
  },
 
 
- async marcarPagado(id:string){
+ async marcarPagado(id:string, userId: string){
 
    return this.update(
      id,
-     {
-       pago:true
-     }
+     { pago:true },
+     userId
    );
 
  }

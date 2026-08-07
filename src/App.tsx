@@ -33,11 +33,18 @@ function AppTabs() {
         tabBarInactiveTintColor: colors.gray[400],
         tabBarStyle: {
           backgroundColor: '#fff',
-          borderTopColor: colors.gray[200],
-          borderTopWidth: 1,
-          paddingBottom: 8,
-          height: 60,
+          borderTopColor: 'transparent',
+          borderTopWidth: 0,
+          paddingTop: 8,
+          paddingBottom: 10,
+          height: 68,
+          elevation: 12,
+          shadowColor: colors.dark,
+          shadowOpacity: 0.08,
+          shadowRadius: 14,
+          shadowOffset: { width: 0, height: -4 },
         },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
       }}
     >
       <Tab.Screen

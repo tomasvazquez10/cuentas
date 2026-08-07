@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { colors } from '@utils/colors';
 import { formatMoney, formatDate } from '@utils/formatting';
-import { CalendarioPago } from '@types/index';
+import { CalendarioPago } from '@models/index';
 
 interface PagoCardProps {
   pago: CalendarioPago;
@@ -61,15 +61,15 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 10,
     alignItems: 'center',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 9,
   },
   completedCard: {
     backgroundColor: colors.gray[50],

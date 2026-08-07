@@ -8,6 +8,7 @@ interface StatCardProps {
   value: number;
   type?: 'ingreso' | 'egreso' | 'neutral';
   currency?: boolean;
+  color?: string;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -15,6 +16,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   value,
   type = 'neutral',
   currency = true,
+  color,
 }) => {
   const getColor = () => {
     switch (type) {
@@ -27,10 +29,13 @@ export const StatCard: React.FC<StatCardProps> = ({
     }
   };
 
+  const accentColor = color ?? getColor();
+
   return (
-    <View style={[styles.card, { borderLeftColor: getColor() }]}>
+    <View style={[styles.card, { borderTopColor: accentColor }]}>
+      <View style={[styles.accent, { backgroundColor: accentColor }]} />
       <Text style={styles.label}>{label}</Text>
-      <Text style={[styles.value, { color: getColor() }]}>
+      <Text style={[styles.value, { color: accentColor }]}>
         {currency ? formatMoney(value) : value.toFixed(2)}
       </Text>
     </View>
@@ -40,25 +45,26 @@ export const StatCard: React.FC<StatCardProps> = ({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
+    borderRadius: 18,
+    padding: 18,
+    borderTopWidth: 1,
     marginBottom: 12,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
   },
+  accent: { width: 30, height: 4, borderRadius: 4, marginBottom: 14 },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.gray[600],
     fontWeight: '600',
     marginBottom: 8,
     textTransform: 'uppercase',
   },
   value: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
   },
 });

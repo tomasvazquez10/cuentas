@@ -10,8 +10,9 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { authService } from '@services/authService';
+import { perfilService } from '@services/perfilService';
 import { Button, Card } from '@components/index';
-import { Perfil } from '@types/index';
+import { Perfil } from '@models/index';
 
 export default function PerfilScreen() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
@@ -20,7 +21,12 @@ export default function PerfilScreen() {
   const loadPerfil = async () => {
     try {
       setLoading(true);
-      const data = await authService.getCurrentUser();
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        setPerfil(null);
+        return;
+      }
+      const data = await perfilService.getPerfil(user.id);
       setPerfil(data);
     } catch (error) {
       Alert.alert('Error', 'No se pudo cargar el perfil');
@@ -64,6 +70,7 @@ export default function PerfilScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
+        <Text style={styles.headerKicker}>TU CUENTA</Text>
         <Text style={styles.headerTitle}>Perfil</Text>
       </View>
 
@@ -142,26 +149,28 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingVertical: 20,
-    paddingTop: 40,
+    paddingBottom: 26,
+    paddingTop: 52,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
     color: '#fff',
   },
+  headerKicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
   profileSection: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 30,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.gray[200],
+    borderBottomWidth: 0,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -172,8 +181,8 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   nombre: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 25,
+    fontWeight: '800',
     color: colors.dark,
     marginBottom: 4,
   },
