@@ -9,9 +9,9 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
-import { calendarioService } from '@services/calendario';
+import { calendarioPagoService } from '@services/calendarioPagoService';
 import { Button, Input, CustomModal, PagoCard, StatCard } from '@components/index';
-import { CalendarioPago } from '@types/index';
+import { CalendarioPago } from '@models/index';
 
 export default function CalendarioScreen() {
   const [pagos, setPagos] = useState<CalendarioPago[]>([]);
@@ -25,7 +25,7 @@ export default function CalendarioScreen() {
   const loadPagos = async () => {
     try {
       setLoading(true);
-      const data = await calendarioService.getPagos();
+      const data = await calendarioPagoService.listar();
       setPagos(data);
     } catch (error) {
       Alert.alert('Error', 'No se pudieron cargar los pagos');
@@ -59,7 +59,7 @@ export default function CalendarioScreen() {
     }
 
     try {
-      const nuevoPago = await calendarioService.createPago({
+      const nuevoPago = await calendarioPagoService.crear({
         fecha,
         servicio,
         monto: parseFloat(monto),
@@ -76,7 +76,7 @@ export default function CalendarioScreen() {
 
   const handleTogglePago = async (pagoId: string, completed: boolean) => {
     try {
-      const pagoActualizado = await calendarioService.updatePago(pagoId, {
+      const pagoActualizado = await calendarioPagoService.actualizar(pagoId, {
         pago: completed,
       });
       setPagos(
@@ -94,7 +94,7 @@ export default function CalendarioScreen() {
         text: 'Eliminar',
         onPress: async () => {
           try {
-            await calendarioService.deletePago(pagoId);
+            await calendarioPagoService.eliminar(pagoId);
             setPagos(pagos.filter((p) => p.id !== pagoId));
             Alert.alert('Éxito', 'Pago eliminado');
           } catch (error) {

@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { colors } from '@utils/colors';
 import { formatMoney, formatDate } from '@utils/formatting';
-import { Movimiento } from '@types/index';
+import { Movimiento } from '@models/index';
 
 interface MovimientoCardProps {
   movimiento: Movimiento;

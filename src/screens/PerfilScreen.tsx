@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
-import { authService } from '@services/auth';
+import { authService } from '@services/authService';
 import { Button, Card } from '@components/index';
 import { Perfil } from '@types/index';
 

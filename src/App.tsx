@@ -3,7 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ActivityIndicator, View, Text } from 'react-native';
-import { authService } from '@services/auth';
+import { authService } from '@services/authService';
 import { colors } from '@utils/colors';
 
 import AuthScreen from '@screens/AuthScreen';

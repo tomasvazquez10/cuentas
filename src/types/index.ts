@@ -1,28 +1,28 @@
-export type TipoMovimiento = 'ingreso' | 'egreso';
-export type SubtipoMovimiento = 'trabajo' | 'compra' | 'servicios' | 'transporte' | 'alimentacion' | 'salud' | 'entretenimiento' | 'otro';
-export type MetodoMovimiento = 'efectivo' | 'tarjeta_debito' | 'tarjeta_credito' | 'transferencia' | 'otro';
+export type TipoMovimiento = 'GASTO' | 'ENTRADA' | 'AHORRO'| 'INVERSION';
+export type SubtipoMovimiento = 'FIJO' | 'BOLUDES' | 'DOLAR' | 'CEDEARS' | 'DEPTO' | 'SALIDAS' | 'SUPER' | 'OTRO' | 'SUELDO' | 'BONO';
+export type MetodoMovimiento = 'VISA' | 'AMEX' | 'EFECTIVO' | 'MERCADOPAGO';
 
 export interface Movimiento {
-  id: string;
-  fecha: string; // ISO 8601 date
-  tipo: TipoMovimiento;
-  subtipo: SubtipoMovimiento;
-  concepto: string;
-  metodo: MetodoMovimiento;
-  monto: number;
-  nota?: string;
-  created_by: string;
-  created_at: string; // ISO 8601 timestamp
+ id:string;
+ fecha:string;
+ tipo:string;
+ subtipo:string;
+ concepto:string;
+ metodo:string;
+ monto:number;
+ nota?:string;
+ created_by:string;
+ created_at:string;
 }
 
 export interface CalendarioPago {
-  id: string;
-  fecha: string; // ISO 8601 date
-  servicio: string;
-  monto: number;
-  pago: boolean;
-  created_by: string;
-  created_at: string; // ISO 8601 timestamp
+ id:string;
+ fecha:string;
+ servicio:string;
+ monto:number;
+ pago:boolean;
+ created_by:string;
+ created_at:string;
 }
 
 export interface Perfil {

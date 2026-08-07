@@ -10,37 +10,22 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
-import { movimientosService } from '@services/movimientos';
+import { movimientoService } from '@services/movimientoService';
 import { Button, Input, CustomModal, MovimientoCard } from '@components/index';
-import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@types/index';
+import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
 
-const SUBTIPOS: SubtipoMovimiento[] = [
-  'trabajo',
-  'compra',
-  'servicios',
-  'transporte',
-  'alimentacion',
-  'salud',
-  'entretenimiento',
-  'otro',
-];
+const SUBTIPOS: SubtipoMovimiento[] = ['FIJO', 'BOLUDES', 'OTRO', 'DOLAR', 'CEDEARS', 'DEPTO', 'SUPER', 'SALIDAS', 'SUELDO', 'BONO'];
 
-const METODOS: MetodoMovimiento[] = [
-  'efectivo',
-  'tarjeta_debito',
-  'tarjeta_credito',
-  'transferencia',
-  'otro',
-];
+const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
 
 export default function MovimientosScreen() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [tipo, setTipo] = useState<TipoMovimiento>('egreso');
-  const [subtipo, setSubtipo] = useState<SubtipoMovimiento>('compra');
-  const [metodo, setMetodo] = useState<MetodoMovimiento>('efectivo');
+  const [tipo, setTipo] = useState<TipoMovimiento>('GASTO');
+  const [subtipo, setSubtipo] = useState<SubtipoMovimiento>('SUPER');
+  const [metodo, setMetodo] = useState<MetodoMovimiento>('EFECTIVO');
   const [concepto, setConcepto] = useState('');
   const [monto, setMonto] = useState('');
   const [nota, setNota] = useState('');
@@ -49,7 +34,7 @@ export default function MovimientosScreen() {
   const loadMovimientos = async () => {
     try {
       setLoading(true);
-      const data = await movimientosService.getMovimientos();
+      const data = await movimientoService.listar();
       setMovimientos(data);
     } catch (error) {
       Alert.alert('Error', 'No se pudieron cargar los movimientos');
@@ -71,9 +56,9 @@ export default function MovimientosScreen() {
   };
 
   const resetForm = () => {
-    setTipo('egreso');
-    setSubtipo('compra');
-    setMetodo('efectivo');
+    setTipo('GASTO');
+    setSubtipo('FIJO');
+    setMetodo('VISA');
     setConcepto('');
     setMonto('');
     setNota('');
@@ -87,7 +72,7 @@ export default function MovimientosScreen() {
     }
 
     try {
-      const nuevoMovimiento = await movimientosService.createMovimiento({
+      const nuevoMovimiento = await movimientoService.crear({
         fecha,
         tipo,
         subtipo,
@@ -112,7 +97,7 @@ export default function MovimientosScreen() {
         text: 'Eliminar',
         onPress: async () => {
           try {
-            await movimientosService.deleteMovimiento(id);
+            await movimientoService.eliminar(id);
             setMovimientos(movimientos.filter((m) => m.id !== id));
             Alert.alert('Éxito', 'Movimiento eliminado');
           } catch (error) {
@@ -191,15 +176,15 @@ export default function MovimientosScreen() {
           <Text style={styles.label}>Tipo</Text>
           <View style={styles.typeButtons}>
             <Button
-              title="Ingreso"
-              onPress={() => setTipo('ingreso')}
-              variant={tipo === 'ingreso' ? 'success' : 'secondary'}
+              title="Entrada"
+              onPress={() => setTipo('ENTRADA')}
+              variant={tipo === 'ENTRADA' ? 'success' : 'secondary'}
               size="small"
             />
             <Button
-              title="Egreso"
-              onPress={() => setTipo('egreso')}
-              variant={tipo === 'egreso' ? 'danger' : 'secondary'}
+              title="Gasto"
+              onPress={() => setTipo('GASTO')}
+              variant={tipo === 'GASTO' ? 'danger' : 'secondary'}
               size="small"
             />
           </View>

@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
-import { movimientosService } from '@services/movimientos';
-import { calendarioService } from '@services/calendario';
+import { movimientoService } from '@services/movimientoService';
+import { calendarioPagoService } from '@services/calendarioPagoService';
 import { formatMoney } from '@utils/formatting';
 import { Button, StatCard, MovimientoCard, PagoCard } from '@components/index';
-import { Movimiento, CalendarioPago } from '@types/index';
+import { Movimiento, CalendarioPago } from '@models/index';
 
 export default function HomeScreen({ navigation }: any) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -26,8 +26,8 @@ export default function HomeScreen({ navigation }: any) {
     try {
       setLoading(true);
       const [movsData, pagosData] = await Promise.all([
-        movimientosService.getMovimientos(),
-        calendarioService.getPagosProximos(),
+        movimientoService.listar(),
+        calendarioPagoService.pendientes(),
       ]);
       setMovimientos(movsData.slice(0, 5)); // Últimos 5 movimientos
       setPagos(pagosData.slice(0, 3)); // Próximos 3 pagos

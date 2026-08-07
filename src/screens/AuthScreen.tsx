@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { colors } from '@utils/colors';
-import { authService } from '@services/auth';
+import { authService } from '@services/authService';
 import { Button, Input } from '@components/index';
 
 type AuthMode = 'login' | 'signup';
