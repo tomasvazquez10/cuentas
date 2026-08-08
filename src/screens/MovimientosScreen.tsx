@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
 const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
 type FiltroMetodo = 'GENERAL' | MetodoMovimiento;
 
-export default function MovimientosScreen() {
+export default function MovimientosScreen({ navigation, route }: any) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,6 +38,14 @@ export default function MovimientosScreen() {
   const [monto, setMonto] = useState('');
   const [nota, setNota] = useState('');
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [cuotaActual, setCuotaActual] = useState('');
+  const [totalCuotas, setTotalCuotas] = useState('');
+  const [compraId, setCompraId] = useState<string | undefined>();
+  const [cuotasPendientes, setCuotasPendientes] = useState<{
+    datosMovimiento: any;
+    cuota: number;
+    total: number;
+  } | null>(null);
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
@@ -75,14 +83,38 @@ export default function MovimientosScreen() {
     setMonto('');
     setNota('');
     setFecha(new Date().toISOString().split('T')[0]);
+    setCuotaActual('');
+    setTotalCuotas('');
+    setCompraId(undefined);
+    setCuotasPendientes(null);
   };
 
   const cerrarModal = () => {
     setModalVisible(false);
     setMovimientoSeleccionado(null);
     setConfirmandoBorrado(false);
+    setCuotasPendientes(null);
     resetForm();
   };
+
+  useEffect(() => {
+    const prefill = route?.params?.prefillMovimiento;
+    if (!prefill) return;
+
+    setMovimientoSeleccionado(null);
+    setTipo(prefill.tipo as TipoMovimiento);
+    setSubtipo(prefill.subtipo as SubtipoMovimiento);
+    setMetodo(prefill.metodo as MetodoMovimiento);
+    setConcepto(prefill.concepto);
+    setMonto(prefill.monto);
+    setNota('');
+    setFecha(prefill.fecha);
+    setCuotaActual('');
+    setTotalCuotas('');
+    setCompraId(undefined);
+    setModalVisible(true);
+    navigation.setParams({ prefillMovimiento: undefined });
+  }, [navigation, route?.params?.prefillMovimiento]);
 
   const abrirEdicion = (movimiento: Movimiento) => {
     setMovimientoSeleccionado(movimiento);
@@ -93,6 +125,9 @@ export default function MovimientosScreen() {
     setMonto(String(movimiento.monto));
     setNota(movimiento.nota ?? '');
     setFecha(movimiento.fecha.slice(0, 10));
+    setCuotaActual(movimiento.cuota_actual ? String(movimiento.cuota_actual) : '');
+    setTotalCuotas(movimiento.total_cuotas ? String(movimiento.total_cuotas) : '');
+    setCompraId(movimiento.compra_id);
     setConfirmandoBorrado(false);
     setModalVisible(true);
   };
@@ -128,23 +163,105 @@ export default function MovimientosScreen() {
     year: 'numeric',
   });
 
+  const crearCuotasSiguientes = async (
+    datosBase: any,
+    cuotaInicial: number,
+    total: number
+  ) => {
+    try {
+      const [anio, mes, dia] = datosBase.fecha.split('-').map(Number);
+      const cuotas = await Promise.all(
+        Array.from({ length: total - cuotaInicial }, (_, indice) => {
+          const fechaCuota = new Date(anio, mes - 1 + indice + 1, 1);
+          const ultimoDia = new Date(
+            fechaCuota.getFullYear(),
+            fechaCuota.getMonth() + 1,
+            0
+          ).getDate();
+          const fecha = `${fechaCuota.getFullYear()}-${String(fechaCuota.getMonth() + 1).padStart(2, '0')}-${String(Math.min(dia, ultimoDia)).padStart(2, '0')}`;
+          return movimientoService.crear({
+            ...datosBase,
+            fecha,
+            cuota_actual: cuotaInicial + indice + 1,
+          });
+        })
+      );
+      setMovimientos((movimientosActuales) => [...movimientosActuales, ...cuotas]);
+      Alert.alert('Exito', 'Se crearon las cuotas restantes');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudieron crear las cuotas restantes');
+    }
+  };
+
+  const guardarCuotaInicial = async (crearSiguientes: boolean) => {
+    if (!cuotasPendientes) return;
+
+    const { datosMovimiento, cuota, total } = cuotasPendientes;
+    try {
+      const nuevoMovimiento = await movimientoService.crear(datosMovimiento);
+      setMovimientos((movimientosActuales) => [nuevoMovimiento, ...movimientosActuales]);
+      cerrarModal();
+      if (crearSiguientes) {
+        await crearCuotasSiguientes(datosMovimiento, cuota, total);
+      } else {
+        Alert.alert('Exito', 'Se creo solo la cuota actual');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo crear el movimiento');
+    }
+  };
+
   const handleCreateMovimiento = async () => {
     if (!concepto || !monto) {
       Alert.alert('Error', 'Completa los campos requeridos');
       return;
     }
 
+    const cuota = cuotaActual ? parseInt(cuotaActual, 10) : 0;
+    const total = totalCuotas ? parseInt(totalCuotas, 10) : 0;
+    if ((cuota && !total) || (!cuota && total) || cuota < 1 || total < cuota) {
+      Alert.alert('Error', 'Indica una cuota valida, por ejemplo 1 de 6');
+      return;
+    }
+    const nuevaCompraId = total
+      ? 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (caracter) => {
+          const aleatorio = Math.floor(Math.random() * 16);
+          return (caracter === 'x' ? aleatorio : (aleatorio & 0x3) | 0x8).toString(16);
+        })
+      : undefined;
+    const datosMovimiento = {
+      fecha, tipo, subtipo, concepto, metodo,
+      monto: parseFloat(monto),
+      nota: nota || undefined,
+      cuota_actual: total ? cuota : undefined,
+      total_cuotas: total || undefined,
+      compra_id: nuevaCompraId,
+    };
+
+    if (total > cuota) {
+      setCuotasPendientes({ datosMovimiento, cuota, total });
+      return;
+    }
+
     try {
-      const nuevoMovimiento = await movimientoService.crear({
-        fecha,
-        tipo,
-        subtipo,
-        concepto,
-        metodo,
-        monto: parseFloat(monto),
-        nota: nota || undefined,
-      });
+      const nuevoMovimiento = await movimientoService.crear(datosMovimiento);
       setMovimientos([nuevoMovimiento, ...movimientos]);
+      if (total > cuota) {
+        resetForm();
+        setModalVisible(false);
+        Alert.alert(
+          'Crear cuotas siguientes?',
+          `Se pueden crear las ${total - cuota} cuotas restantes en los proximos meses.`,
+          [
+            { text: 'No, solo esta cuota' },
+            {
+              text: 'Crear cuotas',
+              onPress: () => void crearCuotasSiguientes(datosMovimiento, cuota, total),
+            },
+          ]
+        );
+        return;
+      }
       resetForm();
       setModalVisible(false);
       Alert.alert('Éxito', 'Movimiento creado correctamente');
@@ -159,6 +276,13 @@ export default function MovimientosScreen() {
       return;
     }
 
+    const cuota = cuotaActual ? parseInt(cuotaActual, 10) : 0;
+    const total = totalCuotas ? parseInt(totalCuotas, 10) : 0;
+    if ((cuota && !total) || (!cuota && total) || cuota < 1 || total < cuota) {
+      Alert.alert('Error', 'Indica una cuota valida, por ejemplo 1 de 6');
+      return;
+    }
+
     try {
       const movimientoActualizado = await movimientoService.actualizar(
         movimientoSeleccionado.id,
@@ -170,6 +294,9 @@ export default function MovimientosScreen() {
           metodo,
           monto: parseFloat(monto),
           nota: nota || undefined,
+          cuota_actual: total ? cuota : undefined,
+          total_cuotas: total || undefined,
+          compra_id: total ? compraId : undefined,
         }
       );
       setMovimientos(
@@ -394,6 +521,52 @@ export default function MovimientosScreen() {
             value={fecha}
             onChangeText={setFecha}
           />
+
+          <Text style={styles.label}>Cuotas (opcional)</Text>
+          <View style={styles.installmentsContainer}>
+            <View style={styles.installmentInput}>
+              <Input
+                label="Cuota actual"
+                placeholder="Ej. 1"
+                value={cuotaActual}
+                onChangeText={setCuotaActual}
+                keyboardType="number-pad"
+              />
+            </View>
+            <Text style={styles.installmentSeparator}>de</Text>
+            <View style={styles.installmentInput}>
+              <Input
+                label="Total cuotas"
+                placeholder="Ej. 6"
+                value={totalCuotas}
+                onChangeText={setTotalCuotas}
+                keyboardType="number-pad"
+              />
+            </View>
+          </View>
+
+          {cuotasPendientes && (
+            <View style={styles.installmentWarning}>
+              <Text style={styles.installmentWarningTitle}>Crear cuotas siguientes?</Text>
+              <Text style={styles.installmentWarningText}>
+                Se generaran las {cuotasPendientes.total - cuotasPendientes.cuota} cuotas restantes en los proximos meses.
+              </Text>
+              <View style={styles.installmentActions}>
+                <TouchableOpacity
+                  onPress={() => void guardarCuotaInicial(false)}
+                  style={styles.installmentSecondaryButton}
+                >
+                  <Text style={styles.installmentSecondaryText}>Solo esta cuota</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => void guardarCuotaInicial(true)}
+                  style={styles.installmentPrimaryButton}
+                >
+                  <Text style={styles.installmentPrimaryText}>Crear todas</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           <Text style={styles.label}>Categoría</Text>
           <View style={styles.optionsContainer}>
@@ -625,6 +798,66 @@ const styles = StyleSheet.create({
   modalFooter: {
     flexDirection: 'row',
     gap: 8,
+  },
+  installmentsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  installmentInput: {
+    flex: 1,
+  },
+  installmentSeparator: {
+    color: colors.gray[500],
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  installmentWarning: {
+    backgroundColor: '#EEEDFF',
+    borderRadius: 16,
+    marginBottom: 16,
+    padding: 16,
+  },
+  installmentWarningTitle: {
+    color: colors.primary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  installmentWarningText: {
+    color: colors.gray[600],
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 5,
+  },
+  installmentActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  installmentSecondaryButton: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    flex: 1,
+    paddingVertical: 11,
+  },
+  installmentSecondaryText: {
+    color: colors.gray[600],
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  installmentPrimaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    flex: 1,
+    paddingVertical: 11,
+  },
+  installmentPrimaryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
   },
   deleteSection: {
     marginTop: 12,

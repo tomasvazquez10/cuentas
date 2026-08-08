@@ -6,6 +6,7 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, getMetodoColor } from '@utils/colors';
@@ -18,6 +19,9 @@ const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
 export default function HomeScreen() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [mesSeleccionado, setMesSeleccionado] = useState(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  );
 
   const loadData = async () => {
     try {
@@ -46,7 +50,23 @@ export default function HomeScreen() {
       0
     );
 
-  const balanceGeneral = calcularBalance(movimientos);
+  const cambiarMes = (desplazamiento: number) => {
+    setMesSeleccionado((mes) =>
+      new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1)
+    );
+  };
+
+  const claveMes = `${mesSeleccionado.getFullYear()}-${String(
+    mesSeleccionado.getMonth() + 1
+  ).padStart(2, '0')}`;
+  const movimientosDelMes = movimientos.filter(
+    (movimiento) => movimiento.fecha.slice(0, 7) === claveMes
+  );
+  const balanceGeneral = calcularBalance(movimientosDelMes);
+  const tituloMes = mesSeleccionado.toLocaleDateString('es-AR', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   return (
     <ScrollView
@@ -63,6 +83,27 @@ export default function HomeScreen() {
         </Text>
       </View>
 
+      <View style={styles.monthSelector}>
+        <TouchableOpacity
+          accessibilityLabel="Mes anterior"
+          onPress={() => cambiarMes(-1)}
+          style={styles.monthButton}
+        >
+          <Text style={styles.monthButtonText}>‹</Text>
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.monthLabel}>MES SELECCIONADO</Text>
+          <Text style={styles.monthTitle}>{tituloMes}</Text>
+        </View>
+        <TouchableOpacity
+          accessibilityLabel="Mes siguiente"
+          onPress={() => cambiarMes(1)}
+          style={styles.monthButton}
+        >
+          <Text style={styles.monthButtonText}>›</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.statsContainer}>
         <Text style={styles.sectionTitle}>Balance general</Text>
         <StatCard label="Saldo disponible" value={balanceGeneral} type="neutral" />
@@ -75,7 +116,7 @@ export default function HomeScreen() {
             key={metodo}
             label={metodo}
             value={calcularBalance(
-              movimientos.filter((movimiento) => movimiento.metodo === metodo)
+              movimientosDelMes.filter((movimiento) => movimiento.metodo === metodo)
             )}
             type="neutral"
             color={getMetodoColor(metodo)}
@@ -115,6 +156,50 @@ const styles = StyleSheet.create({
     color: '#DCD8FF',
     fontSize: 14,
     marginTop: 8,
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 20,
+    marginTop: 18,
+    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    elevation: 2,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 9,
+  },
+  monthButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthButtonText: {
+    color: colors.primary,
+    fontSize: 28,
+    fontWeight: '500',
+    lineHeight: 31,
+  },
+  monthLabel: {
+    color: colors.gray[500],
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    textAlign: 'center',
+  },
+  monthTitle: {
+    color: colors.dark,
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 3,
+    textAlign: 'center',
+    textTransform: 'capitalize',
   },
   statsContainer: {
     paddingHorizontal: 20,

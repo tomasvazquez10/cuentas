@@ -17,7 +17,7 @@ import { CalendarioPago } from '@models/index';
 
 const WEEK_DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
-export default function CalendarioScreen() {
+export default function CalendarioScreen({ navigation }: any) {
   const [pagos, setPagos] = useState<CalendarioPago[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -28,6 +28,7 @@ export default function CalendarioScreen() {
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
+  const [pagoPendienteMovimiento, setPagoPendienteMovimiento] = useState<CalendarioPago | null>(null);
 
   const loadPagos = async () => {
     try {
@@ -85,7 +86,7 @@ export default function CalendarioScreen() {
     }
   };
 
-  const handleTogglePago = async (pagoId: string, completed: boolean) => {
+  const actualizarEstadoPago = async (pagoId: string, completed: boolean) => {
     try {
       const pagoActualizado = await calendarioPagoService.actualizar(pagoId, {
         pago: completed,
@@ -98,6 +99,33 @@ export default function CalendarioScreen() {
     }
   };
 
+  const handleTogglePago = (pago: CalendarioPago, completed: boolean) => {
+    if (!completed) {
+      void actualizarEstadoPago(pago.id, false);
+      return;
+    }
+
+    void actualizarEstadoPago(pago.id, true);
+    setPagoPendienteMovimiento(pago);
+  };
+
+  const abrirMovimientoDesdePago = () => {
+    if (!pagoPendienteMovimiento) return;
+    const hoy = new Date();
+    const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    navigation.navigate('Movimientos', {
+      prefillMovimiento: {
+        concepto: pagoPendienteMovimiento.servicio,
+        fecha: fechaHoy,
+        tipo: 'GASTO',
+        subtipo: 'FIJO',
+        metodo: 'EFECTIVO',
+        monto: String(pagoPendienteMovimiento.monto),
+      },
+    });
+    setPagoPendienteMovimiento(null);
+  };
+
   const cambiarMes = (desplazamiento: number) => {
     setDiasSeleccionados([]);
     setMesSeleccionado((mes) =>
@@ -107,6 +135,10 @@ export default function CalendarioScreen() {
 
   const claveMes = `${mesSeleccionado.getFullYear()}-${String(
     mesSeleccionado.getMonth() + 1
+  ).padStart(2, '0')}`;
+  const hoy = new Date();
+  const claveHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(
+    hoy.getDate()
   ).padStart(2, '0')}`;
   const pagosDelMes = pagos.filter((pago) => pago.fecha.slice(0, 7) === claveMes);
   const pagosMostrados = diasSeleccionados.length
@@ -195,9 +227,14 @@ export default function CalendarioScreen() {
               const fechaDia = `${claveMes}-${String(dia).padStart(2, '0')}`;
               const pagosDelDia = pagosDelMes.filter((pago) => pago.fecha.slice(0, 10) === fechaDia);
               const esSeleccionado = diasSeleccionados.includes(fechaDia);
+              const esHoy = fechaDia === claveHoy;
               const contenidoDia = (
                 <>
-                  <Text style={[styles.dayNumber, esSeleccionado && styles.dayNumberSelected]}>{dia}</Text>
+                  <Text style={[
+                    styles.dayNumber,
+                    esSeleccionado && styles.dayNumberSelected,
+                    esHoy && styles.dayNumberToday,
+                  ]}>{dia}</Text>
                   <View style={styles.dotsContainer}>
                     {pagosDelDia.some((pago) => !pago.pago) && (
                       <View style={[styles.dot, styles.pendingDot]} />
@@ -213,12 +250,17 @@ export default function CalendarioScreen() {
                   <TouchableOpacity
                     key={fechaDia}
                     onPress={() => toggleDiaSeleccionado(fechaDia)}
-                    style={[styles.dayCell, styles.dayCellTouchable, esSeleccionado && styles.dayCellSelected]}
+                    style={[
+                      styles.dayCell,
+                      styles.dayCellTouchable,
+                      esHoy && styles.dayCellToday,
+                      esSeleccionado && styles.dayCellSelected,
+                    ]}
                   >
                     {contenidoDia}
                   </TouchableOpacity>
                 ) : (
-                  <View key={fechaDia} style={styles.dayCell}>{contenidoDia}</View>
+                  <View key={fechaDia} style={[styles.dayCell, esHoy && styles.dayCellToday]}>{contenidoDia}</View>
                 )
               );
             })}
@@ -226,6 +268,28 @@ export default function CalendarioScreen() {
         </View>
 
         <View style={styles.section}>
+          {pagoPendienteMovimiento && (
+            <View style={styles.movementPrompt}>
+              <Text style={styles.movementPromptTitle}>Registrar como movimiento?</Text>
+              <Text style={styles.movementPromptText}>
+                {pagoPendienteMovimiento.servicio} se marco como pagado. Queres cargarlo como gasto?
+              </Text>
+              <View style={styles.movementPromptActions}>
+                <TouchableOpacity
+                  onPress={() => setPagoPendienteMovimiento(null)}
+                  style={styles.movementPromptSecondary}
+                >
+                  <Text style={styles.movementPromptSecondaryText}>No, gracias</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={abrirMovimientoDesdePago}
+                  style={styles.movementPromptPrimary}
+                >
+                  <Text style={styles.movementPromptPrimaryText}>Si, cargar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
               {diasSeleccionados.length
@@ -254,7 +318,7 @@ export default function CalendarioScreen() {
               <PagoCard
                 key={pago.id}
                 pago={pago}
-                onToggle={(completed) => handleTogglePago(pago.id, completed)}
+                onToggle={(completed) => handleTogglePago(pago, completed)}
               />
             ))
           )}
@@ -324,8 +388,10 @@ const styles = StyleSheet.create({
   calendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   dayCell: { width: '14.2857%', minHeight: 54, alignItems: 'center', paddingTop: 7, borderRadius: 10 },
   dayCellTouchable: { justifyContent: 'flex-start' },
+  dayCellToday: { borderWidth: 1.5, borderColor: colors.primary },
   dayCellSelected: { backgroundColor: '#EEEDFF' },
   dayNumber: { color: colors.dark, fontSize: 14, fontWeight: '700' },
+  dayNumberToday: { color: colors.primary, fontWeight: '800' },
   dayNumberSelected: { color: colors.primary },
   dotsContainer: { flexDirection: 'row', gap: 3, minHeight: 8, marginTop: 5 },
   dot: { width: 7, height: 7, borderRadius: 4 },
@@ -335,6 +401,14 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.dark },
   selectedTotal: { color: colors.danger, fontSize: 12, fontWeight: '800' },
+  movementPrompt: { backgroundColor: '#EEEDFF', borderRadius: 16, marginBottom: 18, padding: 16 },
+  movementPromptTitle: { color: colors.primary, fontSize: 15, fontWeight: '800' },
+  movementPromptText: { color: colors.gray[600], fontSize: 13, lineHeight: 19, marginTop: 5 },
+  movementPromptActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  movementPromptSecondary: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, flex: 1, paddingVertical: 11 },
+  movementPromptSecondaryText: { color: colors.gray[600], fontSize: 12, fontWeight: '700' },
+  movementPromptPrimary: { alignItems: 'center', backgroundColor: colors.primary, borderRadius: 12, flex: 1, paddingVertical: 11 },
+  movementPromptPrimaryText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   clearSelection: { color: colors.primary, fontSize: 13, fontWeight: '700', marginTop: -6, marginBottom: 12 },
   emptyText: { color: colors.gray[500], fontSize: 14, paddingVertical: 18, textAlign: 'center' },
   fabContainer: { position: 'absolute', right: 20, bottom: 20 },

@@ -39,7 +39,12 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
       <View style={styles.content}>
         <Text style={styles.concepto}>{movimiento.concepto}</Text>
         <Text style={styles.fecha}>{formatDate(movimiento.fecha)}</Text>
-        <Text style={styles.subtipo}>{movimiento.subtipo}</Text>
+        <Text style={styles.subtipo}>
+          {movimiento.subtipo}
+          {movimiento.cuota_actual && movimiento.total_cuotas
+            ? `  |  Cuota ${movimiento.cuota_actual}/${movimiento.total_cuotas}`
+            : ''}
+        </Text>
       </View>
       <View style={styles.amount}>
         <Text style={[styles.monto, { color }]}>

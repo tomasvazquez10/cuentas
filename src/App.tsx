@@ -11,6 +11,7 @@ import HomeScreen from '@screens/HomeScreen';
 import MovimientosScreen from '@screens/MovimientosScreen';
 import CalendarioScreen from '@screens/CalendarioScreen';
 import PerfilScreen from '@screens/PerfilScreen';
+import TarjetasScreen from '@screens/TarjetasScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
@@ -72,6 +73,15 @@ function AppTabs() {
           title: 'Pagos',
           tabBarLabel: 'Pagos',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📅</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="Tarjetas"
+        component={TarjetasScreen}
+        options={{
+          title: 'Tarjetas',
+          tabBarLabel: 'Tarjetas',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>▭</Text>,
         }}
       />
       <Tab.Screen
