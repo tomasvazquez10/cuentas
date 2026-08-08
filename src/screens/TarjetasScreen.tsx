@@ -13,7 +13,7 @@ import { StatCard } from '@components/index';
 import { tarjetaService } from '@services/tarjetaService';
 import { movimientoService } from '@services/movimientoService';
 import { colors, getMetodoColor } from '@utils/colors';
-import { formatDate } from '@utils/formatting';
+import { formatDate, formatMoney } from '@utils/formatting';
 import { DatoTarjeta, Movimiento } from '@models/index';
 
 const TARJETAS = ['VISA', 'AMEX', 'MERCADOPAGO'] as const;
@@ -110,25 +110,23 @@ export default function TarjetasScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Por tarjeta</Text>
-        {TARJETAS.map((tarjeta) => (
-          <StatCard
-            key={tarjeta}
-            label={tarjeta}
-            value={calcularBalance(movimientosDelMes.filter((movimiento) => movimiento.metodo === tarjeta))}
-            type="neutral"
-            color={getMetodoColor(tarjeta)}
-          />
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Cierre y vencimiento</Text>
+        <Text style={styles.sectionTitle}>Detalle por tarjeta</Text>
         {TARJETAS.map((tarjeta) => {
           const dato = datosTarjeta.find((item) => item.tarjeta === tarjeta);
+          const balance = calcularBalance(
+            movimientosDelMes.filter((movimiento) => movimiento.metodo === tarjeta)
+          );
           return (
             <View key={tarjeta} style={[styles.dateCard, { borderLeftColor: getMetodoColor(tarjeta) }]}>
-              <Text style={styles.cardName}>{tarjeta}</Text>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardName}>{tarjeta}</Text>
+                <View style={styles.balanceGroup}>
+                  <Text style={styles.balanceLabel}>BALANCE</Text>
+                  <Text style={[styles.balanceValue, { color: getMetodoColor(tarjeta) }]}>
+                    {formatMoney(balance)}
+                  </Text>
+                </View>
+              </View>
               {dato ? (
                 <View style={styles.dateRow}>
                   <View>
@@ -153,20 +151,24 @@ export default function TarjetasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.light },
-  header: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 52, paddingBottom: 26, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  header: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 42, paddingBottom: 18, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   kicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
-  title: { color: '#fff', fontSize: 30, fontWeight: '800' },
-  subtitle: { color: '#DCD8FF', fontSize: 14, marginTop: 8 },
-  monthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 18, padding: 14, backgroundColor: '#fff', borderRadius: 18, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
-  monthButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.gray[100], alignItems: 'center', justifyContent: 'center' },
-  monthButtonText: { color: colors.primary, fontSize: 28, fontWeight: '500', lineHeight: 31 },
+  title: { color: '#fff', fontSize: 25, fontWeight: '800' },
+  subtitle: { color: '#DCD8FF', fontSize: 13, marginTop: 5 },
+  monthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 12, padding: 10, backgroundColor: '#fff', borderRadius: 16, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
+  monthButton: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.gray[100], alignItems: 'center', justifyContent: 'center' },
+  monthButtonText: { color: colors.primary, fontSize: 24, fontWeight: '500', lineHeight: 28 },
   monthLabel: { color: colors.gray[500], fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textAlign: 'center' },
-  monthTitle: { color: colors.dark, fontSize: 17, fontWeight: '800', marginTop: 3, textAlign: 'center', textTransform: 'capitalize' },
+  monthTitle: { color: colors.dark, fontSize: 15, fontWeight: '800', marginTop: 2, textAlign: 'center', textTransform: 'capitalize' },
   statsContainer: { paddingHorizontal: 20, paddingTop: 20 },
   section: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 },
   sectionTitle: { color: colors.dark, fontSize: 19, fontWeight: '800', marginBottom: 12 },
   dateCard: { backgroundColor: '#fff', borderLeftWidth: 4, borderRadius: 18, marginBottom: 10, padding: 16, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
-  cardName: { color: colors.dark, fontSize: 16, fontWeight: '800', marginBottom: 14 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  cardName: { color: colors.dark, fontSize: 17, fontWeight: '800' },
+  balanceGroup: { alignItems: 'flex-end' },
+  balanceLabel: { color: colors.gray[500], fontSize: 10, fontWeight: '800', letterSpacing: 0.7 },
+  balanceValue: { fontSize: 16, fontWeight: '800', marginTop: 3 },
   dateRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dateLabel: { color: colors.gray[500], fontSize: 10, fontWeight: '800', letterSpacing: 0.7 },
   dateValue: { color: colors.dark, fontSize: 14, fontWeight: '700', marginTop: 4 },

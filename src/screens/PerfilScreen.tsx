@@ -11,12 +11,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { authService } from '@services/authService';
 import { perfilService } from '@services/perfilService';
-import { Button, Card } from '@components/index';
+import { Button, Card, ConfirmDialog } from '@components/index';
 import { Perfil } from '@models/index';
 
 export default function PerfilScreen() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [loading, setLoading] = useState(false);
+  const [confirmandoLogout, setConfirmandoLogout] = useState(false);
+  const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
   const loadPerfil = async () => {
     try {
@@ -57,6 +59,15 @@ export default function PerfilScreen() {
         style: 'destructive',
       },
     ]);
+  };
+
+  const cerrarSesionConfirmada = async () => {
+    try {
+      await authService.signOut();
+    } catch (error: any) {
+      setConfirmandoLogout(false);
+      Alert.alert('Error', error?.message || 'No se pudo cerrar la sesion');
+    }
   };
 
   if (loading) {
@@ -124,10 +135,34 @@ export default function PerfilScreen() {
             <View style={styles.buttonContainer}>
               <Button
                 title="Cerrar Sesión"
-                onPress={handleLogout}
+                onPress={() => setLogoutDialogVisible(true)}
                 variant="danger"
                 fullWidth
                 size="large"
+              />
+              {confirmandoLogout && (
+                <View style={styles.logoutWarning}>
+                  <Text style={styles.logoutWarningTitle}>Cerrar sesion?</Text>
+                  <Text style={styles.logoutWarningText}>
+                    Tendras que volver a ingresar para usar la app.
+                  </Text>
+                  <View style={styles.logoutActions}>
+                    <Button title="Cancelar" onPress={() => setConfirmandoLogout(false)} variant="secondary" />
+                    <Button title="Cerrar sesion" onPress={() => void cerrarSesionConfirmada()} variant="danger" />
+                  </View>
+                </View>
+              )}
+              <ConfirmDialog
+                visible={logoutDialogVisible}
+                title="Cerrar sesion?"
+                message="Tendras que volver a ingresar para usar la app."
+                confirmLabel="Cerrar sesion"
+                destructive
+                onCancel={() => setLogoutDialogVisible(false)}
+                onConfirm={() => {
+                  setLogoutDialogVisible(false);
+                  void cerrarSesionConfirmada();
+                }}
               />
             </View>
           </View>
@@ -240,4 +275,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
+  logoutWarning: { backgroundColor: '#FFF1F2', borderRadius: 18, marginTop: 12, padding: 16 },
+  logoutWarningTitle: { color: colors.danger, fontSize: 16, fontWeight: '800' },
+  logoutWarningText: { color: colors.gray[600], fontSize: 13, lineHeight: 19, marginTop: 5 },
+  logoutActions: { flexDirection: 'row', gap: 8, marginTop: 14 },
 });

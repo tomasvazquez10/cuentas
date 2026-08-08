@@ -81,7 +81,7 @@ function AppTabs() {
         options={{
           title: 'Tarjetas',
           tabBarLabel: 'Tarjetas',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>▭</Text>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>💳</Text>,
         }}
       />
       <Tab.Screen

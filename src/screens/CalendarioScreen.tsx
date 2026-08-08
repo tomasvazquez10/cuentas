@@ -12,7 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { calendarioPagoService } from '@services/calendarioPagoService';
 import { formatMoney } from '@utils/formatting';
-import { Button, Input, CustomModal, PagoCard, StatCard } from '@components/index';
+import { Button, Input, CustomModal, PagoCard, StatCard, ConfirmDialog } from '@components/index';
 import { CalendarioPago } from '@models/index';
 
 const WEEK_DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -29,6 +29,7 @@ export default function CalendarioScreen({ navigation }: any) {
   );
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
   const [pagoPendienteMovimiento, setPagoPendienteMovimiento] = useState<CalendarioPago | null>(null);
+  const [pagoDialog, setPagoDialog] = useState<CalendarioPago | null>(null);
 
   const loadPagos = async () => {
     try {
@@ -106,24 +107,22 @@ export default function CalendarioScreen({ navigation }: any) {
     }
 
     void actualizarEstadoPago(pago.id, true);
-    setPagoPendienteMovimiento(pago);
+    setPagoDialog(pago);
   };
 
-  const abrirMovimientoDesdePago = () => {
-    if (!pagoPendienteMovimiento) return;
+  const abrirMovimientoDesdePago = (pago: CalendarioPago) => {
     const hoy = new Date();
     const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
     navigation.navigate('Movimientos', {
       prefillMovimiento: {
-        concepto: pagoPendienteMovimiento.servicio,
+        concepto: pago.servicio,
         fecha: fechaHoy,
         tipo: 'GASTO',
         subtipo: 'FIJO',
         metodo: 'EFECTIVO',
-        monto: String(pagoPendienteMovimiento.monto),
+        monto: String(pago.monto),
       },
     });
-    setPagoPendienteMovimiento(null);
   };
 
   const cambiarMes = (desplazamiento: number) => {
@@ -282,7 +281,9 @@ export default function CalendarioScreen({ navigation }: any) {
                   <Text style={styles.movementPromptSecondaryText}>No, gracias</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={abrirMovimientoDesdePago}
+                  onPress={() => {
+                    if (pagoPendienteMovimiento) abrirMovimientoDesdePago(pagoPendienteMovimiento);
+                  }}
                   style={styles.movementPromptPrimary}
                 >
                   <Text style={styles.movementPromptPrimaryText}>Si, cargar</Text>
@@ -290,6 +291,20 @@ export default function CalendarioScreen({ navigation }: any) {
               </View>
             </View>
           )}
+          <ConfirmDialog
+            visible={!!pagoDialog}
+            title="Registrar como movimiento?"
+            message={pagoDialog ? `${pagoDialog.servicio} se marco como pagado. Queres cargarlo como gasto?` : ''}
+            cancelLabel="No, gracias"
+            confirmLabel="Si, cargar"
+            onCancel={() => setPagoDialog(null)}
+            onConfirm={() => {
+              if (!pagoDialog) return;
+              const pago = pagoDialog;
+              setPagoDialog(null);
+              abrirMovimientoDesdePago(pago);
+            }}
+          />
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
               {diasSeleccionados.length
@@ -361,23 +376,23 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 26,
-    paddingTop: 52,
+    paddingBottom: 18,
+    paddingTop: 42,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
   headerKicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
-  headerTitle: { fontSize: 30, fontWeight: '800', color: '#fff' },
-  headerSubtitle: { color: '#DCD8FF', fontSize: 14, marginTop: 8 },
+  headerTitle: { fontSize: 25, fontWeight: '800', color: '#fff' },
+  headerSubtitle: { color: '#DCD8FF', fontSize: 13, marginTop: 5 },
   monthSelector: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20,
-    marginTop: 18, padding: 14, backgroundColor: '#fff', borderRadius: 18, elevation: 2,
+    marginTop: 12, padding: 10, backgroundColor: '#fff', borderRadius: 16, elevation: 2,
     shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9,
   },
-  monthButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.gray[100], alignItems: 'center', justifyContent: 'center' },
-  monthButtonText: { color: colors.primary, fontSize: 28, fontWeight: '500', lineHeight: 31 },
+  monthButton: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.gray[100], alignItems: 'center', justifyContent: 'center' },
+  monthButtonText: { color: colors.primary, fontSize: 24, fontWeight: '500', lineHeight: 28 },
   monthLabel: { color: colors.gray[500], fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textAlign: 'center' },
-  monthTitle: { color: colors.dark, fontSize: 17, fontWeight: '800', marginTop: 3, textAlign: 'center', textTransform: 'capitalize' },
+  monthTitle: { color: colors.dark, fontSize: 15, fontWeight: '800', marginTop: 2, textAlign: 'center', textTransform: 'capitalize' },
   statsContainer: { paddingHorizontal: 20, paddingTop: 18 },
   calendarCard: { backgroundColor: '#fff', borderRadius: 20, marginHorizontal: 20, marginTop: 4, padding: 16, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
   legend: { flexDirection: 'row', gap: 14, marginBottom: 18 },

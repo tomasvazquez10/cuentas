@@ -5,3 +5,4 @@ export { MovimientoCard } from './MovimientoCard';
 export { PagoCard } from './PagoCard';
 export { Card } from './Card';
 export { CustomModal } from './CustomModal';
+export { ConfirmDialog } from './ConfirmDialog';

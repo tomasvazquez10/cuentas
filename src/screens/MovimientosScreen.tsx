@@ -11,7 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, getMetodoColor } from '@utils/colors';
 import { movimientoService } from '@services/movimientoService';
-import { Button, Input, CustomModal, MovimientoCard, StatCard } from '@components/index';
+import { Button, Input, CustomModal, MovimientoCard, StatCard, ConfirmDialog } from '@components/index';
 import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
@@ -22,7 +22,7 @@ const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
 };
 
 const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
-type FiltroMetodo = 'GENERAL' | MetodoMovimiento;
+type FiltroMetodo = MetodoMovimiento;
 
 export default function MovimientosScreen({ navigation, route }: any) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
@@ -31,6 +31,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
   const [modalVisible, setModalVisible] = useState(false);
   const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<Movimiento | null>(null);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [tipo, setTipo] = useState<TipoMovimiento>('GASTO');
   const [subtipo, setSubtipo] = useState<SubtipoMovimiento>('SUPER');
   const [metodo, setMetodo] = useState<MetodoMovimiento>('EFECTIVO');
@@ -46,10 +47,15 @@ export default function MovimientosScreen({ navigation, route }: any) {
     cuota: number;
     total: number;
   } | null>(null);
+  const [cuotasDialog, setCuotasDialog] = useState<{
+    datosMovimiento: any;
+    cuota: number;
+    total: number;
+  } | null>(null);
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
-  const [filtroMetodo, setFiltroMetodo] = useState<FiltroMetodo>('GENERAL');
+  const [filtroMetodo, setFiltroMetodo] = useState<FiltroMetodo>('VISA');
 
   const loadMovimientos = async () => {
     try {
@@ -150,8 +156,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     movimiento.fecha.slice(0, 7) === claveMesSeleccionado
   );
   const movimientosFiltrados = movimientosDelMes.filter(
-    (movimiento) =>
-      filtroMetodo === 'GENERAL' || movimiento.metodo === filtroMetodo
+    (movimiento) => movimiento.metodo === filtroMetodo
   );
   const balanceFiltrado = movimientosFiltrados.reduce(
     (balance, movimiento) =>
@@ -211,6 +216,26 @@ export default function MovimientosScreen({ navigation, route }: any) {
     }
   };
 
+  const guardarCuotaDesdeDialog = async (
+    crearSiguientes: boolean,
+    pendiente = cuotasDialog
+  ) => {
+    if (!pendiente) return;
+    const { datosMovimiento, cuota, total } = pendiente;
+    try {
+      const nuevoMovimiento = await movimientoService.crear(datosMovimiento);
+      setMovimientos((movimientosActuales) => [nuevoMovimiento, ...movimientosActuales]);
+      cerrarModal();
+      if (crearSiguientes) {
+        await crearCuotasSiguientes(datosMovimiento, cuota, total);
+      } else {
+        Alert.alert('Exito', 'Se creo solo la cuota actual');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo crear el movimiento');
+    }
+  };
+
   const handleCreateMovimiento = async () => {
     if (!concepto || !monto) {
       Alert.alert('Error', 'Completa los campos requeridos');
@@ -239,7 +264,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     };
 
     if (total > cuota) {
-      setCuotasPendientes({ datosMovimiento, cuota, total });
+      setCuotasDialog({ datosMovimiento, cuota, total });
       return;
     }
 
@@ -386,14 +411,14 @@ export default function MovimientosScreen({ navigation, route }: any) {
         <View style={styles.filtersContainer}>
           <Text style={styles.filterLabel}>METODO DE PAGO</Text>
           <View style={styles.filterOptions}>
-            {(['GENERAL', ...METODOS] as FiltroMetodo[]).map((opcion) => (
+            {METODOS.map((opcion) => (
               <TouchableOpacity
                 key={opcion}
                 onPress={() => setFiltroMetodo(opcion)}
                 style={[
                   styles.filterOption,
                   filtroMetodo === opcion && styles.filterOptionSelected,
-                  filtroMetodo === opcion && opcion !== 'GENERAL' && {
+                  filtroMetodo === opcion && {
                     backgroundColor: getMetodoColor(opcion),
                   },
                 ]}
@@ -405,7 +430,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
                     filtroMetodo === opcion && opcion === 'MERCADOPAGO' && styles.filterOptionTextDark,
                   ]}
                 >
-                  {opcion === 'GENERAL' ? 'General' : opcion}
+                  {opcion}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -414,7 +439,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
 
         <View style={styles.balanceContainer}>
           <StatCard
-            label={filtroMetodo === 'GENERAL' ? 'Balance del mes' : `Balance ${filtroMetodo}`}
+            label={`Balance ${filtroMetodo}`}
             value={balanceFiltrado}
             type="neutral"
           />
@@ -431,7 +456,6 @@ export default function MovimientosScreen({ navigation, route }: any) {
                 key={mov.id}
                 movimiento={mov}
                 onPress={() => abrirEdicion(mov)}
-                onDelete={() => handleDeleteMovimiento(mov.id)}
               />
             ))}
           </View>
@@ -629,7 +653,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
                 </View>
               ) : (
                 <TouchableOpacity
-                  onPress={() => setConfirmandoBorrado(true)}
+                  onPress={() => setDeleteDialogVisible(true)}
                   style={styles.deleteButton}
                 >
                   <Text style={styles.deleteButtonText}>Borrar movimiento</Text>
@@ -639,6 +663,35 @@ export default function MovimientosScreen({ navigation, route }: any) {
           )}
         </View>
       </CustomModal>
+      <ConfirmDialog
+        visible={deleteDialogVisible}
+        title="Eliminar movimiento?"
+        message="Esta accion no se puede deshacer."
+        confirmLabel="Eliminar"
+        destructive
+        onCancel={() => setDeleteDialogVisible(false)}
+        onConfirm={() => {
+          setDeleteDialogVisible(false);
+          void eliminarDesdeEdicion();
+        }}
+      />
+      <ConfirmDialog
+        visible={!!cuotasDialog}
+        title="Crear cuotas siguientes?"
+        message={cuotasDialog ? `Se pueden crear las ${cuotasDialog.total - cuotasDialog.cuota} cuotas restantes en los proximos meses.` : ''}
+        cancelLabel="Solo esta cuota"
+        confirmLabel="Crear todas"
+        onCancel={() => {
+          const pendiente = cuotasDialog;
+          setCuotasDialog(null);
+          void guardarCuotaDesdeDialog(false, pendiente);
+        }}
+        onConfirm={() => {
+          const pendiente = cuotasDialog;
+          setCuotasDialog(null);
+          void guardarCuotaDesdeDialog(true, pendiente);
+        }}
+      />
     </View>
   );
 }
@@ -651,18 +704,18 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 26,
-    paddingTop: 52,
+    paddingBottom: 18,
+    paddingTop: 42,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
   headerTitle: {
-    fontSize: 30,
+    fontSize: 25,
     fontWeight: '800',
     color: '#fff',
   },
   headerKicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
-  headerSubtitle: { color: '#DCD8FF', fontSize: 14, marginTop: 8 },
+  headerSubtitle: { color: '#DCD8FF', fontSize: 13, marginTop: 5 },
   listContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
@@ -672,8 +725,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 20,
-    marginTop: 18,
-    padding: 14,
+    marginTop: 12,
+    padding: 10,
     backgroundColor: '#fff',
     borderRadius: 18,
     elevation: 2,
@@ -723,16 +776,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
   },
   monthButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 10,
     backgroundColor: colors.gray[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
   monthButtonText: {
     color: colors.primary,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '500',
     lineHeight: 31,
   },
@@ -745,7 +798,7 @@ const styles = StyleSheet.create({
   },
   monthTitle: {
     color: colors.dark,
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
     marginTop: 3,
     textAlign: 'center',
