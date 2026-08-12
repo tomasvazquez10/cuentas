@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, getMetodoColor } from '@utils/colors';
 import { movimientoService } from '@services/movimientoService';
 import { StatCard } from '@components/index';
@@ -69,15 +70,16 @@ export default function HomeScreen({ navigation }: any) {
   });
 
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Resumen financiero</Text>
-      </View>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Resumen financiero</Text>
+        </View>
 
       <View style={styles.monthSelector}>
         <TouchableOpacity
@@ -120,11 +122,16 @@ export default function HomeScreen({ navigation }: any) {
           />
         ))}
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.primary,
+  },
   container: {
     flex: 1,
     backgroundColor: colors.light,
