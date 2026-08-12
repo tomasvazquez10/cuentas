@@ -15,8 +15,4 @@ export const supabase = createClient(url, key, {
 },
 );
 
-console.log("SUPABASE_URL:", process.env.EXPO_PUBLIC_SUPABASE_URL);
-console.log(
-  "SUPABASE_KEY:",
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 20)
-);
+

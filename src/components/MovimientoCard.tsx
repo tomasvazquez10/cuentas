@@ -25,6 +25,10 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
   const color = isIngreso ? colors.ingresos : colors.egresos;
   const metodoColor = getMetodoColor(movimiento.metodo);
   const sign = isIngreso ? '+' : '-';
+  const mostrarCuotas =
+    !!movimiento.cuota_actual &&
+    !!movimiento.total_cuotas &&
+    movimiento.total_cuotas > 1;
 
   return (
     <TouchableOpacity
@@ -41,7 +45,7 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
         <Text style={styles.fecha}>{formatDate(movimiento.fecha)}</Text>
         <Text style={styles.subtipo}>
           {movimiento.subtipo}
-          {movimiento.cuota_actual && movimiento.total_cuotas
+          {mostrarCuotas
             ? `  |  Cuota ${movimiento.cuota_actual}/${movimiento.total_cuotas}`
             : ''}
         </Text>

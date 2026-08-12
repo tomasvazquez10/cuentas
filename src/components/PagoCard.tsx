@@ -7,7 +7,7 @@ import {
   Switch,
 } from 'react-native';
 import { colors } from '@utils/colors';
-import { formatMoney, formatDate } from '@utils/formatting';
+import { formatMoney, formatDate, parseDateAsLocal } from '@utils/formatting';
 import { CalendarioPago } from '@models/index';
 
 interface PagoCardProps {
@@ -23,7 +23,7 @@ export const PagoCard: React.FC<PagoCardProps> = ({
   onToggle,
   onDelete,
 }) => {
-  const fechaPago = new Date(pago.fecha);
+  const fechaPago = parseDateAsLocal(pago.fecha);
   const hoy = new Date();
   const diasRestantes = Math.ceil(
     (fechaPago.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)

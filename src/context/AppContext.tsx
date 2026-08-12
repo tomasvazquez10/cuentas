@@ -9,6 +9,7 @@ import { Movimiento, CalendarioPago } from '@models/index';
 
 import { movimientoService } from '@services/movimientoService';
 import { calendarioPagoService } from '@services/calendarioPagoService';
+import { parseDateAsLocal } from '@utils/formatting';
 
 import { useAuth } from '@context/AuthContext';
 
@@ -247,11 +248,11 @@ const nuevo =
     nuevo
    ]
    .sort(
-    (a,b)=>
-    new Date(a.fecha).getTime()
-    -
-    new Date(b.fecha).getTime()
-   )
+     (a,b)=>
+     parseDateAsLocal(a.fecha).getTime()
+     -
+     parseDateAsLocal(b.fecha).getTime()
+    )
 
  );
 

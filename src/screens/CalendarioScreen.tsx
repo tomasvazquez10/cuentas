@@ -16,6 +16,52 @@ import { Button, Input, CustomModal, PagoCard, StatCard, ConfirmDialog } from '@
 import { CalendarioPago } from '@models/index';
 
 const WEEK_DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+const SERVICE_SUGGESTIONS = ['Edenor', 'Naturgy', 'Internet', 'VISA', 'AMEX', 'MPAGO'];
+
+const toDateKey = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+    date.getDate()
+  ).padStart(2, '0')}`;
+
+const parseLocalDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+
+  const [, year, month, day] = match;
+  const parsedDate = new Date(Number(year), Number(month) - 1, Number(day));
+  const isValid =
+    parsedDate.getFullYear() === Number(year) &&
+    parsedDate.getMonth() === Number(month) - 1 &&
+    parsedDate.getDate() === Number(day);
+
+  return isValid ? parsedDate : null;
+};
+
+const getPagoDateKey = (value: string) => {
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.exec(value);
+  if (dateOnly) return value;
+
+  const parsedDate = new Date(value);
+  return Number.isNaN(parsedDate.getTime()) ? value.slice(0, 10) : toDateKey(parsedDate);
+};
+
+const parseMonto = (value: string) => {
+  const trimmed = value.trim();
+  const hasComma = trimmed.includes(',');
+  const hasDot = trimmed.includes('.');
+  let normalized = trimmed;
+
+  if (hasComma && hasDot) {
+    normalized = trimmed.replace(/\./g, '').replace(',', '.');
+  } else if (hasComma) {
+    normalized = trimmed.replace(',', '.');
+  } else if (hasDot && !/^\d+\.\d{1,2}$/.test(trimmed)) {
+    normalized = trimmed.replace(/\./g, '');
+  }
+
+  const amount = Number(normalized);
+  return Number.isFinite(amount) ? amount : NaN;
+};
 
 export default function CalendarioScreen({ navigation }: any) {
   const [pagos, setPagos] = useState<CalendarioPago[]>([]);
@@ -23,7 +69,17 @@ export default function CalendarioScreen({ navigation }: any) {
   const [modalVisible, setModalVisible] = useState(false);
   const [servicio, setServicio] = useState('');
   const [monto, setMonto] = useState('');
-  const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [fecha, setFecha] = useState(toDateKey(new Date()));
+  const [savingPago, setSavingPago] = useState(false);
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  const [mesFormularioPago, setMesFormularioPago] = useState(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  );
+  const [formErrors, setFormErrors] = useState({
+    servicio: '',
+    monto: '',
+    fecha: '',
+  });
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
@@ -54,7 +110,11 @@ export default function CalendarioScreen({ navigation }: any) {
   const resetForm = () => {
     setServicio('');
     setMonto('');
-    setFecha(new Date().toISOString().split('T')[0]);
+    setFecha(toDateKey(new Date()));
+    setDatePickerVisible(false);
+    setMesFormularioPago(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    setFormErrors({ servicio: '', monto: '', fecha: '' });
+    setSavingPago(false);
   };
 
   const cerrarModal = () => {
@@ -63,27 +123,45 @@ export default function CalendarioScreen({ navigation }: any) {
   };
 
   const handleCreatePago = async () => {
-    if (!servicio || !monto) {
-      Alert.alert('Error', 'Completa los campos requeridos');
+    const servicioLimpio = servicio.trim();
+    const montoNumerico = parseMonto(monto);
+    const fechaValida = parseLocalDate(fecha);
+    const nextErrors = {
+      servicio: servicioLimpio ? '' : 'Ingresa el nombre del servicio',
+      monto:
+        Number.isFinite(montoNumerico) && montoNumerico > 0
+          ? ''
+          : 'Ingresa un monto mayor a cero',
+      fecha: fechaValida ? '' : 'Usa una fecha valida con formato YYYY-MM-DD',
+    };
+
+    setFormErrors(nextErrors);
+
+    if (nextErrors.servicio || nextErrors.monto || nextErrors.fecha) {
       return;
     }
 
+    if (savingPago) return;
+
     try {
+      setSavingPago(true);
       const nuevoPago = await calendarioPagoService.crear({
-        fecha,
-        servicio,
-        monto: parseFloat(monto),
+        fecha: toDateKey(fechaValida),
+        servicio: servicioLimpio,
+        monto: montoNumerico,
         pago: false,
       });
       setPagos((pagosActuales) =>
         [...pagosActuales, nuevoPago].sort(
-          (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+          (a, b) => getPagoDateKey(a.fecha).localeCompare(getPagoDateKey(b.fecha))
         )
       );
       cerrarModal();
       Alert.alert('Exito', 'Pago agregado al calendario');
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo crear el pago');
+    } finally {
+      setSavingPago(false);
     }
   };
 
@@ -134,21 +212,24 @@ export default function CalendarioScreen({ navigation }: any) {
   };
 
   const abrirModalNuevoPago = () => {
+    const fechaInicial =
+      diasSeleccionados.length === 1 ? parseLocalDate(diasSeleccionados[0]) ?? new Date() : new Date();
+
     if (diasSeleccionados.length === 1) {
       setFecha(diasSeleccionados[0]);
     } else {
-      setFecha(new Date().toISOString().split('T')[0]);
+      setFecha(toDateKey(new Date()));
     }
+    setMesFormularioPago(new Date(fechaInicial.getFullYear(), fechaInicial.getMonth(), 1));
+    setFormErrors({ servicio: '', monto: '', fecha: '' });
     setModalVisible(true);
   };
 
   const abrirMovimientoDesdePago = (pago: CalendarioPago) => {
-    const hoy = new Date();
-    const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
     navigation.navigate('Movimientos', {
       prefillMovimiento: {
         concepto: pago.servicio,
-        fecha: fechaHoy,
+        fecha: toDateKey(new Date()),
         tipo: 'GASTO',
         subtipo: 'FIJO',
         metodo: 'EFECTIVO',
@@ -168,18 +249,16 @@ export default function CalendarioScreen({ navigation }: any) {
     mesSeleccionado.getMonth() + 1
   ).padStart(2, '0')}`;
   const hoy = new Date();
-  const claveHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(
-    hoy.getDate()
-  ).padStart(2, '0')}`;
-  const pagosDelMes = pagos.filter((pago) => pago.fecha.slice(0, 7) === claveMes);
+  const claveHoy = toDateKey(hoy);
+  const pagosDelMes = pagos.filter((pago) => getPagoDateKey(pago.fecha).slice(0, 7) === claveMes);
   const pagosMostrados = diasSeleccionados.length
-    ? pagosDelMes.filter((pago) => diasSeleccionados.includes(pago.fecha.slice(0, 10)))
+    ? pagosDelMes.filter((pago) => diasSeleccionados.includes(getPagoDateKey(pago.fecha)))
     : pagosDelMes;
   const totalPendiente = pagosDelMes
     .filter((pago) => !pago.pago)
     .reduce((total, pago) => total + pago.monto, 0);
   const vencidosHoy = pagosDelMes
-    .filter((pago) => !pago.pago && pago.fecha.slice(0, 10) <= claveHoy)
+    .filter((pago) => !pago.pago && getPagoDateKey(pago.fecha) <= claveHoy)
     .reduce((total, pago) => total + pago.monto, 0);
   const totalPagado = pagosDelMes
     .filter((pago) => pago.pago)
@@ -213,6 +292,41 @@ export default function CalendarioScreen({ navigation }: any) {
         : [...dias, fechaDia]
     );
   };
+
+  const seleccionarFechaPago = (date: Date) => {
+    setFecha(toDateKey(date));
+    setMesFormularioPago(new Date(date.getFullYear(), date.getMonth(), 1));
+    setDatePickerVisible(false);
+    setFormErrors((errors) => ({ ...errors, fecha: '' }));
+  };
+
+  const cambiarMesFormularioPago = (desplazamiento: number) => {
+    setMesFormularioPago((mes) => new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1));
+  };
+
+  const fechaPreview = parseLocalDate(fecha);
+  const montoPreview = parseMonto(monto);
+  const claveMesFormularioPago = `${mesFormularioPago.getFullYear()}-${String(
+    mesFormularioPago.getMonth() + 1
+  ).padStart(2, '0')}`;
+  const tituloMesFormularioPago = mesFormularioPago.toLocaleDateString('es-AR', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const primerDiaSemanaFormulario = (new Date(
+    mesFormularioPago.getFullYear(),
+    mesFormularioPago.getMonth(),
+    1
+  ).getDay() + 6) % 7;
+  const diasMesFormulario = new Date(
+    mesFormularioPago.getFullYear(),
+    mesFormularioPago.getMonth() + 1,
+    0
+  ).getDate();
+  const celdasCalendarioFormulario = Array.from(
+    { length: primerDiaSemanaFormulario + diasMesFormulario },
+    (_, indice) => indice - primerDiaSemanaFormulario + 1
+  );
 
   return (
     <View style={styles.container}>
@@ -268,7 +382,7 @@ export default function CalendarioScreen({ navigation }: any) {
             {celdasCalendario.map((dia, indice) => {
               if (dia <= 0) return <View key={`empty-${indice}`} style={styles.dayCell} />;
               const fechaDia = `${claveMes}-${String(dia).padStart(2, '0')}`;
-              const pagosDelDia = pagosDelMes.filter((pago) => pago.fecha.slice(0, 10) === fechaDia);
+              const pagosDelDia = pagosDelMes.filter((pago) => getPagoDateKey(pago.fecha) === fechaDia);
               const esSeleccionado = diasSeleccionados.includes(fechaDia);
               const esHoy = fechaDia === claveHoy;
               const contenidoDia = (
@@ -398,14 +512,160 @@ export default function CalendarioScreen({ navigation }: any) {
         footer={
           <View style={styles.modalFooter}>
             <Button title="Cancelar" onPress={cerrarModal} variant="secondary" />
-            <Button title="Agregar" onPress={handleCreatePago} variant="success" />
+            <Button
+              title="Agregar"
+              onPress={handleCreatePago}
+              variant="success"
+              disabled={savingPago}
+              loading={savingPago}
+            />
           </View>
         }
       >
         <View>
-          <Input label="Servicio" placeholder="Nombre del servicio" value={servicio} onChangeText={setServicio} />
-          <Input label="Monto" placeholder="0.00" value={monto} onChangeText={setMonto} keyboardType="decimal-pad" />
-          <Input label="Fecha de Pago" placeholder="YYYY-MM-DD" value={fecha} onChangeText={setFecha} />
+          <Text style={styles.formHint}>
+            Carga el vencimiento una vez y despues marcalo como pagado desde el calendario.
+          </Text>
+          <Input
+            label="Servicio"
+            placeholder="Ej: Internet, alquiler, tarjeta"
+            value={servicio}
+            onChangeText={(value) => {
+              setServicio(value);
+              if (formErrors.servicio) setFormErrors((errors) => ({ ...errors, servicio: '' }));
+            }}
+            error={formErrors.servicio}
+          />
+          <View style={styles.suggestionRow}>
+            {SERVICE_SUGGESTIONS.map((suggestion) => {
+              const isSelected = servicio.trim().toUpperCase() === suggestion.toUpperCase();
+
+              return (
+                <TouchableOpacity
+                  key={suggestion}
+                  onPress={() => {
+                    setServicio(suggestion);
+                    setFormErrors((errors) => ({ ...errors, servicio: '' }));
+                  }}
+                  style={[styles.suggestionChip, isSelected && styles.suggestionChipSelected]}
+                >
+                  <Text style={[styles.suggestionText, isSelected && styles.suggestionTextSelected]}>
+                    {suggestion}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Input
+            label="Monto"
+            placeholder="Ej: 12500,50"
+            value={monto}
+            onChangeText={(value) => {
+              setMonto(value);
+              if (formErrors.monto) setFormErrors((errors) => ({ ...errors, monto: '' }));
+            }}
+            keyboardType="decimal-pad"
+            error={formErrors.monto}
+          />
+          <Text style={styles.label}>Fecha de pago</Text>
+          <TouchableOpacity
+            onPress={() => setDatePickerVisible((visible) => !visible)}
+            style={[styles.dateField, formErrors.fecha && styles.dateFieldError]}
+          >
+            <Text style={styles.dateFieldText}>
+              {fechaPreview
+                ? fechaPreview.toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                  })
+                : 'Seleccionar fecha'}
+            </Text>
+            <Text style={styles.dateFieldAction}>{datePickerVisible ? 'Cerrar' : 'Cambiar'}</Text>
+          </TouchableOpacity>
+          {datePickerVisible && (
+            <View style={styles.formCalendar}>
+              <View style={styles.formCalendarHeader}>
+                <TouchableOpacity
+                  onPress={() => cambiarMesFormularioPago(-1)}
+                  style={styles.formCalendarButton}
+                >
+                  <Text style={styles.formCalendarButtonText}>{'<'}</Text>
+                </TouchableOpacity>
+                <Text style={styles.formCalendarTitle}>{tituloMesFormularioPago}</Text>
+                <TouchableOpacity
+                  onPress={() => cambiarMesFormularioPago(1)}
+                  style={styles.formCalendarButton}
+                >
+                  <Text style={styles.formCalendarButtonText}>{'>'}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.formWeekHeader}>
+                {WEEK_DAYS.map((dia) => (
+                  <Text key={dia} style={styles.formWeekDay}>
+                    {dia}
+                  </Text>
+                ))}
+              </View>
+              <View style={styles.formCalendarGrid}>
+                {celdasCalendarioFormulario.map((dia, indice) => {
+                  if (dia <= 0) {
+                    return <View key={`form-empty-${indice}`} style={styles.formDayCell} />;
+                  }
+
+                  const fechaDia = `${claveMesFormularioPago}-${String(dia).padStart(2, '0')}`;
+                  const isSelected = fechaDia === fecha;
+                  const isToday = fechaDia === claveHoy;
+
+                  return (
+                    <TouchableOpacity
+                      key={fechaDia}
+                      onPress={() => seleccionarFechaPago(parseLocalDate(fechaDia) ?? new Date())}
+                      style={[
+                        styles.formDayCell,
+                        styles.formDayCellTouchable,
+                        isToday && styles.formDayCellToday,
+                        isSelected && styles.formDayCellSelected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.formDayNumber,
+                          isToday && styles.formDayNumberToday,
+                          isSelected && styles.formDayNumberSelected,
+                        ]}
+                      >
+                        {dia}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <TouchableOpacity
+                onPress={() => seleccionarFechaPago(new Date())}
+                style={styles.todayButton}
+              >
+                <Text style={styles.todayButtonText}>Hoy</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {formErrors.fecha ? <Text style={styles.formCalendarErrorText}>{formErrors.fecha}</Text> : null}
+          <View style={styles.paymentPreview}>
+            <Text style={styles.previewLabel}>Resumen</Text>
+            <Text style={styles.previewTitle}>{servicio.trim() || 'Nuevo pago'}</Text>
+            <Text style={styles.previewText}>
+              {Number.isFinite(montoPreview) && montoPreview > 0
+                ? formatMoney(montoPreview)
+                : '$ 0,00'}
+              {fechaPreview
+                ? ` - vence el ${fechaPreview.toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}`
+                : ' - fecha pendiente'}
+            </Text>
+          </View>
         </View>
       </CustomModal>
     </View>
@@ -475,6 +735,39 @@ const styles = StyleSheet.create({
   alDiaIcon: { color: colors.success, fontSize: 36, marginBottom: 8 },
   alDiaText: { color: colors.success, fontSize: 20, fontWeight: '800' },
   alDiaSubtext: { color: colors.gray[600], fontSize: 14, marginTop: 4 },
+  formHint: { color: colors.gray[600], fontSize: 13, lineHeight: 19, marginBottom: 16 },
+  label: { color: colors.dark, fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  suggestionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -6, marginBottom: 16 },
+  suggestionChip: { backgroundColor: colors.gray[100], borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9 },
+  suggestionChipSelected: { backgroundColor: '#EEEDFF' },
+  suggestionText: { color: colors.gray[700], fontSize: 12, fontWeight: '700' },
+  suggestionTextSelected: { color: colors.primary },
+  dateField: { alignItems: 'center', backgroundColor: colors.gray[50], borderColor: colors.gray[200], borderRadius: 14, borderWidth: 1.5, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, minHeight: 48, paddingHorizontal: 14 },
+  dateFieldError: { borderColor: colors.danger },
+  dateFieldText: { color: colors.dark, flex: 1, fontSize: 15, fontWeight: '700', textTransform: 'capitalize' },
+  dateFieldAction: { color: colors.primary, fontSize: 12, fontWeight: '800', marginLeft: 10 },
+  formCalendar: { alignSelf: 'flex-start', backgroundColor: colors.gray[50], borderColor: colors.gray[200], borderRadius: 14, borderWidth: 1, marginBottom: 16, padding: 10, width: 292 },
+  formCalendarHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  formCalendarButton: { alignItems: 'center', backgroundColor: colors.gray[100], borderRadius: 9, height: 28, justifyContent: 'center', width: 28 },
+  formCalendarButtonText: { color: colors.primary, fontSize: 16, fontWeight: '800', lineHeight: 20 },
+  formCalendarTitle: { color: colors.dark, fontSize: 14, fontWeight: '800', textTransform: 'capitalize' },
+  formWeekHeader: { flexDirection: 'row', marginBottom: 4 },
+  formWeekDay: { color: colors.gray[500], fontSize: 10, fontWeight: '800', textAlign: 'center', width: '14.2857%' },
+  formCalendarGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  formDayCell: { alignItems: 'center', borderRadius: 8, height: 32, justifyContent: 'center', width: '14.2857%' },
+  formDayCellTouchable: { backgroundColor: 'transparent' },
+  formDayCellToday: { borderColor: colors.primary, borderWidth: 1.2 },
+  formDayCellSelected: { backgroundColor: colors.primary },
+  formDayNumber: { color: colors.dark, fontSize: 12, fontWeight: '700' },
+  formDayNumberToday: { color: colors.primary, fontWeight: '800' },
+  formDayNumberSelected: { color: '#fff' },
+  todayButton: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#EEEDFF', borderRadius: 10, marginTop: 8, paddingHorizontal: 10, paddingVertical: 7 },
+  todayButtonText: { color: colors.primary, fontSize: 12, fontWeight: '800' },
+  formCalendarErrorText: { color: colors.danger, fontSize: 12, marginTop: -6, marginBottom: 14 },
+  paymentPreview: { backgroundColor: colors.gray[50], borderColor: colors.gray[200], borderRadius: 16, borderWidth: 1, padding: 14 },
+  previewLabel: { color: colors.gray[500], fontSize: 11, fontWeight: '800', marginBottom: 6, textTransform: 'uppercase' },
+  previewTitle: { color: colors.dark, fontSize: 16, fontWeight: '800' },
+  previewText: { color: colors.gray[600], fontSize: 13, lineHeight: 18, marginTop: 4 },
 });
 
 

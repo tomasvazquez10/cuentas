@@ -24,6 +24,26 @@ const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
 const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
 type FiltroMetodo = MetodoMovimiento;
 
+const getCuotasData = (cuotaActual: string, totalCuotas: string) => {
+  const cuotaText = cuotaActual.trim();
+  const totalText = totalCuotas.trim();
+  const hasCuotas = !!cuotaText || !!totalText;
+
+  if (!hasCuotas) {
+    return { hasCuotas: false, cuota: 0, total: 0, isValid: true };
+  }
+
+  const cuota = Number(cuotaText);
+  const total = Number(totalText);
+  const isValid =
+    Number.isInteger(cuota) &&
+    Number.isInteger(total) &&
+    cuota >= 1 &&
+    total >= cuota;
+
+  return { hasCuotas, cuota, total, isValid };
+};
+
 export default function MovimientosScreen({ navigation, route }: any) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(false);
@@ -242,13 +262,12 @@ export default function MovimientosScreen({ navigation, route }: any) {
       return;
     }
 
-    const cuota = cuotaActual ? parseInt(cuotaActual, 10) : 0;
-    const total = totalCuotas ? parseInt(totalCuotas, 10) : 0;
-    if ((cuota && !total) || (!cuota && total) || cuota < 1 || total < cuota) {
+    const { hasCuotas, cuota, total, isValid } = getCuotasData(cuotaActual, totalCuotas);
+    if (!isValid) {
       Alert.alert('Error', 'Indica una cuota valida, por ejemplo 1 de 6');
       return;
     }
-    const nuevaCompraId = total
+    const nuevaCompraId = hasCuotas
       ? 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (caracter) => {
           const aleatorio = Math.floor(Math.random() * 16);
           return (caracter === 'x' ? aleatorio : (aleatorio & 0x3) | 0x8).toString(16);
@@ -258,12 +277,12 @@ export default function MovimientosScreen({ navigation, route }: any) {
       fecha, tipo, subtipo, concepto, metodo,
       monto: parseFloat(monto),
       nota: nota || undefined,
-      cuota_actual: total ? cuota : undefined,
-      total_cuotas: total || undefined,
+      cuota_actual: hasCuotas ? cuota : undefined,
+      total_cuotas: hasCuotas ? total : undefined,
       compra_id: nuevaCompraId,
     };
 
-    if (total > cuota) {
+    if (hasCuotas && total > cuota) {
       setCuotasDialog({ datosMovimiento, cuota, total });
       return;
     }
@@ -271,7 +290,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     try {
       const nuevoMovimiento = await movimientoService.crear(datosMovimiento);
       setMovimientos([nuevoMovimiento, ...movimientos]);
-      if (total > cuota) {
+      if (hasCuotas && total > cuota) {
         resetForm();
         setModalVisible(false);
         Alert.alert(
@@ -301,9 +320,8 @@ export default function MovimientosScreen({ navigation, route }: any) {
       return;
     }
 
-    const cuota = cuotaActual ? parseInt(cuotaActual, 10) : 0;
-    const total = totalCuotas ? parseInt(totalCuotas, 10) : 0;
-    if ((cuota && !total) || (!cuota && total) || cuota < 1 || total < cuota) {
+    const { hasCuotas, cuota, total, isValid } = getCuotasData(cuotaActual, totalCuotas);
+    if (!isValid) {
       Alert.alert('Error', 'Indica una cuota valida, por ejemplo 1 de 6');
       return;
     }
@@ -319,9 +337,9 @@ export default function MovimientosScreen({ navigation, route }: any) {
           metodo,
           monto: parseFloat(monto),
           nota: nota || undefined,
-          cuota_actual: total ? cuota : undefined,
-          total_cuotas: total || undefined,
-          compra_id: total ? compraId : undefined,
+          cuota_actual: hasCuotas ? cuota : undefined,
+          total_cuotas: hasCuotas ? total : undefined,
+          compra_id: hasCuotas ? compraId : undefined,
         }
       );
       setMovimientos(

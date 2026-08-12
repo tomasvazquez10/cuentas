@@ -1,6 +1,7 @@
 import { movimientoRepository } from '@repositories/movimientoRepository';
 import { calendarioPagoRepository } from '@repositories/calendarioPagoRepository';
 import { authRepository } from '@repositories/authRepository';
+import { parseDateAsLocal } from '@utils/formatting';
 
 export const dashboardService = {
 
@@ -34,8 +35,8 @@ export const dashboardService = {
       proximosPagos: pagos
         .sort(
           (a, b) =>
-            new Date(a.fecha).getTime() -
-            new Date(b.fecha).getTime()
+            parseDateAsLocal(a.fecha).getTime() -
+            parseDateAsLocal(b.fecha).getTime()
         )
         .slice(0, 5)
     };
