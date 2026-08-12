@@ -81,7 +81,6 @@ export default function PerfilScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerKicker}>TU CUENTA</Text>
         <Text style={styles.headerTitle}>Perfil</Text>
       </View>
 
@@ -184,17 +183,16 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 26,
+    paddingBottom: 14,
     paddingTop: 52,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
   headerTitle: {
-    fontSize: 30,
+    fontSize: 22,
     fontWeight: '800',
     color: '#fff',
   },
-  headerKicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
   profileSection: {
     alignItems: 'center',
     paddingVertical: 30,

@@ -92,7 +92,6 @@ export default function AuthScreen() {
         <View style={styles.header}>
           <Text style={styles.logo}>💰</Text>
           <Text style={styles.title}>Cuentas</Text>
-          <Text style={styles.subtitle}>Gestiona tus gastos fácilmente</Text>
         </View>
 
         <View style={styles.form}>
@@ -178,7 +177,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginBottom: 34,
+    marginBottom: 20,
   },
   logo: {
     fontSize: 60,
@@ -188,11 +187,6 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: '800',
     color: colors.dark,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.gray[600],
-    marginTop: 8,
   },
   form: {
     backgroundColor: '#fff',
@@ -210,7 +204,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   switchText: {
-    color: colors.gray[600],
     fontSize: 14,
   },
   switchLink: {

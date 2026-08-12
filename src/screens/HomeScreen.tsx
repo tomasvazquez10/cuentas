@@ -76,11 +76,7 @@ export default function HomeScreen() {
       }
     >
       <View style={styles.header}>
-        <Text style={styles.eyebrow}>TU PANORAMA</Text>
         <Text style={styles.headerTitle}>Resumen financiero</Text>
-        <Text style={styles.headerSubtitle}>
-          Tus saldos organizados por metodo de pago.
-        </Text>
       </View>
 
       <View style={styles.monthSelector}>
@@ -135,27 +131,15 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: 14,
     paddingTop: 42,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
-  eyebrow: {
-    color: '#DCD8FF',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    marginBottom: 8,
-  },
   headerTitle: {
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: '800',
     color: '#fff',
-  },
-  headerSubtitle: {
-    color: '#DCD8FF',
-    fontSize: 13,
-    marginTop: 5,
   },
   monthSelector: {
     flexDirection: 'row',

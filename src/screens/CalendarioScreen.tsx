@@ -110,6 +110,38 @@ export default function CalendarioScreen({ navigation }: any) {
     setPagoDialog(pago);
   };
 
+  const handleDeletePago = (pago: CalendarioPago) => {
+    Alert.alert(
+      'Eliminar pago',
+      `¿Estás seguro de que deseas eliminar el pago de "${pago.servicio}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await calendarioPagoService.eliminar(pago.id);
+              setPagos((pagosActuales) => pagosActuales.filter((p) => p.id !== pago.id));
+              Alert.alert('Éxito', 'Pago eliminado correctamente');
+            } catch (error: any) {
+              Alert.alert('Error', error?.message || 'No se pudo eliminar el pago');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const abrirModalNuevoPago = () => {
+    if (diasSeleccionados.length === 1) {
+      setFecha(diasSeleccionados[0]);
+    } else {
+      setFecha(new Date().toISOString().split('T')[0]);
+    }
+    setModalVisible(true);
+  };
+
   const abrirMovimientoDesdePago = (pago: CalendarioPago) => {
     const hoy = new Date();
     const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
@@ -145,6 +177,12 @@ export default function CalendarioScreen({ navigation }: any) {
     : pagosDelMes;
   const totalPendiente = pagosDelMes
     .filter((pago) => !pago.pago)
+    .reduce((total, pago) => total + pago.monto, 0);
+  const vencidosHoy = pagosDelMes
+    .filter((pago) => !pago.pago && pago.fecha.slice(0, 10) <= claveHoy)
+    .reduce((total, pago) => total + pago.monto, 0);
+  const totalPagado = pagosDelMes
+    .filter((pago) => pago.pago)
     .reduce((total, pago) => total + pago.monto, 0);
   const totalPendienteSeleccionado = pagosMostrados
     .filter((pago) => !pago.pago)
@@ -182,9 +220,7 @@ export default function CalendarioScreen({ navigation }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.header}>
-          <Text style={styles.headerKicker}>PLANIFICACION</Text>
           <Text style={styles.headerTitle}>Calendario de pagos</Text>
-          <Text style={styles.headerSubtitle}>Controla tus vencimientos del mes.</Text>
         </View>
 
         <View style={styles.monthSelector}>
@@ -201,7 +237,15 @@ export default function CalendarioScreen({ navigation }: any) {
         </View>
 
         <View style={styles.statsContainer}>
-          <StatCard label="Total pendiente" value={totalPendiente} type="egreso" />
+          {vencidosHoy > 0 ? (
+            <StatCard label="Total pendiente" value={totalPendiente} type="egreso" />
+          ) : (
+            <View style={styles.alDiaContainer}>
+              <Text style={styles.alDiaIcon}>✓</Text>
+              <Text style={styles.alDiaText}>Estás al día</Text>
+              <Text style={styles.alDiaSubtext}>Sin pagos vencidos</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.calendarCard}>
@@ -245,22 +289,18 @@ export default function CalendarioScreen({ navigation }: any) {
                 </>
               );
               return (
-                pagosDelDia.length ? (
-                  <TouchableOpacity
-                    key={fechaDia}
-                    onPress={() => toggleDiaSeleccionado(fechaDia)}
-                    style={[
-                      styles.dayCell,
-                      styles.dayCellTouchable,
-                      esHoy && styles.dayCellToday,
-                      esSeleccionado && styles.dayCellSelected,
-                    ]}
-                  >
-                    {contenidoDia}
-                  </TouchableOpacity>
-                ) : (
-                  <View key={fechaDia} style={[styles.dayCell, esHoy && styles.dayCellToday]}>{contenidoDia}</View>
-                )
+                <TouchableOpacity
+                  key={fechaDia}
+                  onPress={() => toggleDiaSeleccionado(fechaDia)}
+                  style={[
+                    styles.dayCell,
+                    styles.dayCellTouchable,
+                    esHoy && styles.dayCellToday,
+                    esSeleccionado && styles.dayCellSelected,
+                  ]}
+                >
+                  {contenidoDia}
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -334,6 +374,7 @@ export default function CalendarioScreen({ navigation }: any) {
                 key={pago.id}
                 pago={pago}
                 onToggle={(completed) => handleTogglePago(pago, completed)}
+                onDelete={() => handleDeletePago(pago)}
               />
             ))
           )}
@@ -343,7 +384,7 @@ export default function CalendarioScreen({ navigation }: any) {
       <View style={styles.fabContainer}>
         <TouchableOpacity
           accessibilityLabel="Nuevo pago"
-          onPress={() => setModalVisible(true)}
+          onPress={abrirModalNuevoPago}
           style={styles.fab}
         >
           <Text style={styles.fabText}>+</Text>
@@ -376,14 +417,12 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 18,
+    paddingBottom: 14,
     paddingTop: 42,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
-  headerKicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
-  headerTitle: { fontSize: 25, fontWeight: '800', color: '#fff' },
-  headerSubtitle: { color: '#DCD8FF', fontSize: 13, marginTop: 5 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
   monthSelector: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20,
     marginTop: 12, padding: 10, backgroundColor: '#fff', borderRadius: 16, elevation: 2,
@@ -394,6 +433,8 @@ const styles = StyleSheet.create({
   monthLabel: { color: colors.gray[500], fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textAlign: 'center' },
   monthTitle: { color: colors.dark, fontSize: 15, fontWeight: '800', marginTop: 2, textAlign: 'center', textTransform: 'capitalize' },
   statsContainer: { paddingHorizontal: 20, paddingTop: 18 },
+  statsRow: { flexDirection: 'row', gap: 12 },
+  statCol: { flex: 1 },
   calendarCard: { backgroundColor: '#fff', borderRadius: 20, marginHorizontal: 20, marginTop: 4, padding: 16, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
   legend: { flexDirection: 'row', gap: 14, marginBottom: 18 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -430,4 +471,11 @@ const styles = StyleSheet.create({
   fab: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success, elevation: 8, shadowColor: colors.dark, shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   fabText: { color: '#fff', fontSize: 32, fontWeight: '400', lineHeight: 36 },
   modalFooter: { flexDirection: 'row', gap: 8 },
+  alDiaContainer: { alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 18, marginHorizontal: 20, marginTop: 18, padding: 24 },
+  alDiaIcon: { color: colors.success, fontSize: 36, marginBottom: 8 },
+  alDiaText: { color: colors.success, fontSize: 20, fontWeight: '800' },
+  alDiaSubtext: { color: colors.gray[600], fontSize: 14, marginTop: 4 },
 });
+
+
+

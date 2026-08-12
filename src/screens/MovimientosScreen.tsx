@@ -382,9 +382,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.headerKicker}>HISTORIAL</Text>
           <Text style={styles.headerTitle}>Movimientos</Text>
-          <Text style={styles.headerSubtitle}>Tus ingresos y gastos, ordenados.</Text>
         </View>
 
         <View style={styles.monthSelector}>
@@ -704,18 +702,16 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 18,
+    paddingBottom: 14,
     paddingTop: 42,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
   headerTitle: {
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: '800',
     color: '#fff',
   },
-  headerKicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
-  headerSubtitle: { color: '#DCD8FF', fontSize: 13, marginTop: 5 },
   listContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
@@ -973,3 +969,5 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+
+

@@ -86,10 +86,8 @@ export default function TarjetasScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <Text style={styles.kicker}>RESUMEN DE TARJETAS</Text>
         <Text style={styles.title}>Tarjetas</Text>
-        <Text style={styles.subtitle}>Saldos, cierres y vencimientos.</Text>
-      </View>
+        </View>
 
       <View style={styles.monthSelector}>
         <TouchableOpacity onPress={() => cambiarMes(-1)} style={styles.monthButton}>
@@ -106,7 +104,7 @@ export default function TarjetasScreen() {
 
       <View style={styles.statsContainer}>
         <Text style={styles.sectionTitle}>Balance total</Text>
-        <StatCard label="Todas las tarjetas" value={balanceTotal} type="neutral" />
+        <StatCard label="Todas las tarjetas" value={Math.abs(balanceTotal)} type="neutral" />
       </View>
 
       <View style={styles.section}>
@@ -123,7 +121,7 @@ export default function TarjetasScreen() {
                 <View style={styles.balanceGroup}>
                   <Text style={styles.balanceLabel}>BALANCE</Text>
                   <Text style={[styles.balanceValue, { color: getMetodoColor(tarjeta) }]}>
-                    {formatMoney(balance)}
+                    {formatMoney(Math.abs(balance))}
                   </Text>
                 </View>
               </View>
@@ -151,10 +149,8 @@ export default function TarjetasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.light },
-  header: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 42, paddingBottom: 18, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
-  kicker: { color: '#DCD8FF', fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 8 },
-  title: { color: '#fff', fontSize: 25, fontWeight: '800' },
-  subtitle: { color: '#DCD8FF', fontSize: 13, marginTop: 5 },
+  header: { backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 42, paddingBottom: 14, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
+  title: { color: '#fff', fontSize: 22, fontWeight: '800' },
   monthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20, marginTop: 12, padding: 10, backgroundColor: '#fff', borderRadius: 16, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
   monthButton: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.gray[100], alignItems: 'center', justifyContent: 'center' },
   monthButtonText: { color: colors.primary, fontSize: 24, fontWeight: '500', lineHeight: 28 },
@@ -174,3 +170,4 @@ const styles = StyleSheet.create({
   dateValue: { color: colors.dark, fontSize: 14, fontWeight: '700', marginTop: 4 },
   noDates: { color: colors.gray[500], fontSize: 13 },
 });
+
