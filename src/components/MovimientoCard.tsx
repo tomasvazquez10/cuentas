@@ -14,17 +14,20 @@ interface MovimientoCardProps {
   movimiento: Movimiento;
   onPress?: () => void;
   onDelete?: () => void;
+  hideSign?: boolean;
 }
 
 export const MovimientoCard: React.FC<MovimientoCardProps> = ({
   movimiento,
   onPress,
   onDelete,
+  hideSign = false,
 }) => {
   const isIngreso = movimiento.tipo === 'ENTRADA';
   const color = isIngreso ? colors.ingresos : colors.egresos;
   const metodoColor = getMetodoColor(movimiento.metodo);
   const sign = isIngreso ? '+' : '-';
+  const amountPrefix = hideSign ? '' : `${sign} `;
   const mostrarCuotas =
     !!movimiento.cuota_actual &&
     !!movimiento.total_cuotas &&
@@ -52,7 +55,7 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
       </View>
       <View style={styles.amount}>
         <Text style={[styles.monto, { color }]}>
-          {sign} {formatMoney(movimiento.monto)}
+          {amountPrefix}{formatMoney(movimiento.monto)}
         </Text>
       </View>
     </TouchableOpacity>

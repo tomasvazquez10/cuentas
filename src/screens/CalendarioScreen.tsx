@@ -45,6 +45,12 @@ const getPagoDateKey = (value: string) => {
   return Number.isNaN(parsedDate.getTime()) ? value.slice(0, 10) : toDateKey(parsedDate);
 };
 
+const addDays = (date: Date, days: number) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
 const parseMonto = (value: string) => {
   const trimmed = value.trim();
   const hasComma = trimmed.includes(',');
@@ -250,16 +256,26 @@ export default function CalendarioScreen({ navigation }: any) {
   ).padStart(2, '0')}`;
   const hoy = new Date();
   const claveHoy = toDateKey(hoy);
+  const claveManana = toDateKey(addDays(hoy, 1));
+  const claveProximoLunes = hoy.getDay() === 5 ? toDateKey(addDays(hoy, 3)) : '';
   const pagosDelMes = pagos.filter((pago) => getPagoDateKey(pago.fecha).slice(0, 7) === claveMes);
   const pagosMostrados = diasSeleccionados.length
     ? pagosDelMes.filter((pago) => diasSeleccionados.includes(getPagoDateKey(pago.fecha)))
     : pagosDelMes;
-  const totalPendiente = pagosDelMes
-    .filter((pago) => !pago.pago)
-    .reduce((total, pago) => total + pago.monto, 0);
-  const vencidosHoy = pagosDelMes
-    .filter((pago) => !pago.pago && getPagoDateKey(pago.fecha) <= claveHoy)
-    .reduce((total, pago) => total + pago.monto, 0);
+  const pagosVencidos = pagos.filter((pago) => !pago.pago && getPagoDateKey(pago.fecha) <= claveHoy);
+  const totalPagosVencidos = pagosVencidos.reduce((total, pago) => total + pago.monto, 0);
+  const pagosManana = pagos.filter((pago) => !pago.pago && getPagoDateKey(pago.fecha) === claveManana);
+  const totalPagosManana = pagosManana.reduce((total, pago) => total + pago.monto, 0);
+  const pagosProximoLunes = claveProximoLunes
+    ? pagos.filter((pago) => !pago.pago && getPagoDateKey(pago.fecha) === claveProximoLunes)
+    : [];
+  const totalPagosProximoLunes = pagosProximoLunes.reduce((total, pago) => total + pago.monto, 0);
+  const mensajeProximoPago =
+    pagosManana.length > 0
+      ? `Manana tenes ${pagosManana.length} pago${pagosManana.length === 1 ? '' : 's'} por ${formatMoney(totalPagosManana)}`
+      : pagosProximoLunes.length > 0
+        ? `El lunes tenes ${pagosProximoLunes.length} pago${pagosProximoLunes.length === 1 ? '' : 's'} por ${formatMoney(totalPagosProximoLunes)}`
+        : 'Sin pagos vencidos';
   const totalPagado = pagosDelMes
     .filter((pago) => pago.pago)
     .reduce((total, pago) => total + pago.monto, 0);
@@ -351,13 +367,15 @@ export default function CalendarioScreen({ navigation }: any) {
         </View>
 
         <View style={styles.statsContainer}>
-          {vencidosHoy > 0 ? (
-            <StatCard label="Total pendiente" value={totalPendiente} type="egreso" />
+          {totalPagosVencidos > 0 ? (
+            <View style={styles.overdueMessage}>
+              <Text style={styles.overdueTitle}>Tenes pagos vencidos</Text>
+              <Text style={styles.overdueAmount}>{formatMoney(totalPagosVencidos)}</Text>
+            </View>
           ) : (
             <View style={styles.alDiaContainer}>
-              <Text style={styles.alDiaIcon}>✓</Text>
               <Text style={styles.alDiaText}>Estás al día</Text>
-              <Text style={styles.alDiaSubtext}>Sin pagos vencidos</Text>
+              <Text style={styles.alDiaSubtext}>{mensajeProximoPago}</Text>
             </View>
           )}
         </View>
@@ -692,10 +710,10 @@ const styles = StyleSheet.create({
   monthButtonText: { color: colors.primary, fontSize: 24, fontWeight: '500', lineHeight: 28 },
   monthLabel: { color: colors.gray[500], fontSize: 10, fontWeight: '800', letterSpacing: 0.8, textAlign: 'center' },
   monthTitle: { color: colors.dark, fontSize: 15, fontWeight: '800', marginTop: 2, textAlign: 'center', textTransform: 'capitalize' },
-  statsContainer: { paddingHorizontal: 20, paddingTop: 18 },
+  statsContainer: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14 },
   statsRow: { flexDirection: 'row', gap: 12 },
   statCol: { flex: 1 },
-  calendarCard: { backgroundColor: '#fff', borderRadius: 20, marginHorizontal: 20, marginTop: 4, padding: 16, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
+  calendarCard: { backgroundColor: '#fff', borderRadius: 20, marginHorizontal: 20, marginTop: 0, padding: 16, elevation: 2, shadowColor: colors.dark, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.05, shadowRadius: 9 },
   legend: { flexDirection: 'row', gap: 14, marginBottom: 18 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendText: { color: colors.gray[600], fontSize: 12, fontWeight: '600' },
@@ -731,10 +749,12 @@ const styles = StyleSheet.create({
   fab: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success, elevation: 8, shadowColor: colors.dark, shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   fabText: { color: '#fff', fontSize: 32, fontWeight: '400', lineHeight: 36 },
   modalFooter: { flexDirection: 'row', gap: 8 },
-  alDiaContainer: { alignItems: 'center', backgroundColor: '#E8F5E9', borderRadius: 18, marginHorizontal: 20, marginTop: 18, padding: 24 },
-  alDiaIcon: { color: colors.success, fontSize: 36, marginBottom: 8 },
-  alDiaText: { color: colors.success, fontSize: 20, fontWeight: '800' },
-  alDiaSubtext: { color: colors.gray[600], fontSize: 14, marginTop: 4 },
+  alDiaContainer: { backgroundColor: '#E8F5E9', borderRadius: 18, padding: 18 },
+  alDiaText: { color: colors.success, fontSize: 16, fontWeight: '800' },
+  alDiaSubtext: { color: colors.gray[600], fontSize: 13, marginTop: 6 },
+  overdueMessage: { backgroundColor: '#FDECEF', borderRadius: 18, marginBottom: 12, padding: 18 },
+  overdueTitle: { color: colors.danger, fontSize: 14, fontWeight: '800' },
+  overdueAmount: { color: colors.danger, fontSize: 24, fontWeight: '900', marginTop: 6 },
   formHint: { color: colors.gray[600], fontSize: 13, lineHeight: 19, marginBottom: 16 },
   label: { color: colors.dark, fontSize: 13, fontWeight: '700', marginBottom: 8 },
   suggestionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: -6, marginBottom: 16 },
@@ -769,6 +789,7 @@ const styles = StyleSheet.create({
   previewTitle: { color: colors.dark, fontSize: 16, fontWeight: '800' },
   previewText: { color: colors.gray[600], fontSize: 13, lineHeight: 18, marginTop: 4 },
 });
+
 
 
 

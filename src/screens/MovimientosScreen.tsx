@@ -21,7 +21,8 @@ const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
   INVERSION: ['CEDEARS'],
 };
 
-const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
+const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
+const METODOS_TARJETA: MetodoMovimiento[] = ['VISA', 'AMEX', 'MERCADOPAGO'];
 type FiltroMetodo = MetodoMovimiento;
 
 const getCuotasData = (cuotaActual: string, totalCuotas: string) => {
@@ -75,7 +76,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
-  const [filtroMetodo, setFiltroMetodo] = useState<FiltroMetodo>('VISA');
+  const [filtroMetodo, setFiltroMetodo] = useState<FiltroMetodo>('EFECTIVO');
 
   const loadMovimientos = async () => {
     try {
@@ -104,7 +105,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
   const resetForm = () => {
     setTipo('GASTO');
     setSubtipo('FIJO');
-    setMetodo('VISA');
+    setMetodo('EFECTIVO');
     setConcepto('');
     setMonto('');
     setNota('');
@@ -122,6 +123,14 @@ export default function MovimientosScreen({ navigation, route }: any) {
     setCuotasPendientes(null);
     resetForm();
   };
+
+  useEffect(() => {
+    const metodoSeleccionado = route?.params?.filtroMetodo as MetodoMovimiento | undefined;
+    if (metodoSeleccionado && METODOS.includes(metodoSeleccionado)) {
+      setFiltroMetodo(metodoSeleccionado);
+      navigation.setParams({ filtroMetodo: undefined });
+    }
+  }, [navigation, route?.params?.filtroMetodo]);
 
   useEffect(() => {
     const prefill = route?.params?.prefillMovimiento;
@@ -183,6 +192,8 @@ export default function MovimientosScreen({ navigation, route }: any) {
       balance + (movimiento.tipo === 'ENTRADA' ? movimiento.monto : -movimiento.monto),
     0
   );
+  const filtroEsTarjeta = METODOS_TARJETA.includes(filtroMetodo);
+  const balanceMostrado = filtroEsTarjeta ? Math.abs(balanceFiltrado) : balanceFiltrado;
   const tituloMes = mesSeleccionado.toLocaleDateString('es-AR', {
     month: 'long',
     year: 'numeric',
@@ -456,8 +467,9 @@ export default function MovimientosScreen({ navigation, route }: any) {
         <View style={styles.balanceContainer}>
           <StatCard
             label={`Balance ${filtroMetodo}`}
-            value={balanceFiltrado}
-            type="neutral"
+            value={balanceMostrado}
+            type={filtroEsTarjeta ? 'egreso' : 'neutral'}
+            color={filtroEsTarjeta ? getMetodoColor(filtroMetodo) : undefined}
           />
         </View>
 
@@ -472,6 +484,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
                 key={mov.id}
                 movimiento={mov}
                 onPress={() => abrirEdicion(mov)}
+                hideSign={filtroEsTarjeta}
               />
             ))}
           </View>

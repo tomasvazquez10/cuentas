@@ -18,7 +18,7 @@ import { DatoTarjeta, Movimiento } from '@models/index';
 
 const TARJETAS = ['VISA', 'AMEX', 'MERCADOPAGO'] as const;
 
-export default function TarjetasScreen() {
+export default function TarjetasScreen({ navigation }: any) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [datosTarjeta, setDatosTarjeta] = useState<DatoTarjeta[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -115,7 +115,12 @@ export default function TarjetasScreen() {
             movimientosDelMes.filter((movimiento) => movimiento.metodo === tarjeta)
           );
           return (
-            <View key={tarjeta} style={[styles.dateCard, { borderLeftColor: getMetodoColor(tarjeta) }]}>
+            <TouchableOpacity
+              key={tarjeta}
+              activeOpacity={0.82}
+              onPress={() => navigation.navigate('Movimientos', { filtroMetodo: tarjeta })}
+              style={[styles.dateCard, { borderLeftColor: getMetodoColor(tarjeta) }]}
+            >
               <View style={styles.cardHeader}>
                 <Text style={styles.cardName}>{tarjeta}</Text>
                 <View style={styles.balanceGroup}>
@@ -139,7 +144,7 @@ export default function TarjetasScreen() {
               ) : (
                 <Text style={styles.noDates}>Sin fechas cargadas para este mes</Text>
               )}
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>

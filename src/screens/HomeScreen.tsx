@@ -14,9 +14,9 @@ import { movimientoService } from '@services/movimientoService';
 import { StatCard } from '@components/index';
 import { Movimiento, MetodoMovimiento } from '@models/index';
 
-const METODOS: MetodoMovimiento[] = ['VISA', 'AMEX', 'EFECTIVO', 'MERCADOPAGO'];
+const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
 
-export default function HomeScreen() {
+export default function HomeScreen({ navigation }: any) {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [mesSeleccionado, setMesSeleccionado] = useState(
@@ -116,6 +116,7 @@ export default function HomeScreen() {
             )}
             type="neutral"
             color={getMetodoColor(metodo)}
+            onPress={() => navigation.navigate('Movimientos', { filtroMetodo: metodo })}
           />
         ))}
       </View>

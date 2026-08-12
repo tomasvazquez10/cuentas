@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '@utils/colors';
 import { formatMoney } from '@utils/formatting';
 
@@ -9,6 +9,7 @@ interface StatCardProps {
   type?: 'ingreso' | 'egreso' | 'neutral';
   currency?: boolean;
   color?: string;
+  onPress?: () => void;
 }
 
 export const StatCard: React.FC<StatCardProps> = ({
@@ -17,6 +18,7 @@ export const StatCard: React.FC<StatCardProps> = ({
   type = 'neutral',
   currency = true,
   color,
+  onPress,
 }) => {
   const getColor = () => {
     switch (type) {
@@ -31,13 +33,31 @@ export const StatCard: React.FC<StatCardProps> = ({
 
   const accentColor = color ?? getColor();
 
-  return (
-    <View style={[styles.card, { borderTopColor: accentColor }]}>
+  const content = (
+    <>
       <View style={[styles.accent, { backgroundColor: accentColor }]} />
       <Text style={styles.label}>{label}</Text>
       <Text style={[styles.value, { color: accentColor }]}>
         {currency ? formatMoney(value) : value.toFixed(2)}
       </Text>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.82}
+        onPress={onPress}
+        style={[styles.card, { borderTopColor: accentColor }]}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View style={[styles.card, { borderTopColor: accentColor }]}>
+      {content}
     </View>
   );
 };
