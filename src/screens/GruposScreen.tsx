@@ -50,25 +50,42 @@ export default function GruposScreen({ navigation, route }: any) {
   // Diálogo eliminar
   const [gastoAEliminar, setGastoAEliminar] = useState<string | null>(null);
 
-  // Simulación de Usuario Activo (Reemplaza esto por tu hook o contexto de Auth real, ej: useAuth())
-  const usuarioActualId = route.params?.userId || '123-usuario-id'; 
-
   const loadGrupos = async () => {
     try {
       setLoading(true);
-      const listaGrupos = await grupoService.obtenerGruposDelUsuario(usuarioActualId);
+      // El service se encarga por debajo de buscar el usuario actual con authRepository
+      const listaGrupos = await grupoService.obtenerGruposDelUsuario();
       setGrupos(listaGrupos);
 
-      // Si hay grupos y ninguno seleccionado, seleccionamos el primero por defecto
       if (listaGrupos.length > 0 && (!grupoSeleccionadoId || !listaGrupos.some(g => g.id === grupoSeleccionadoId))) {
         setGrupoSeleccionadoId(listaGrupos[0].id);
       } else if (listaGrupos.length === 0) {
         setGrupoSeleccionadoId(null);
       }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los grupos');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudieron cargar los grupos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateGrupo = async () => {
+    if (!nombreGrupo.trim()) {
+      Alert.alert('Error', 'El nombre del grupo es obligatorio');
+      return;
+    }
+
+    try {
+      // Ya no le pasamos el ID por parámetro, el service lo resuelve con authRepository
+      const nuevoGrupo = await grupoService.crearGrupo(nombreGrupo, descripcionGrupo);
+      setModalGrupoVisible(false);
+      setNombreGrupo('');
+      setDescripcionGrupo('');
+      await loadGrupos();
+      setGrupoSeleccionadoId(nuevoGrupo.id);
+      Alert.alert('Éxito', 'Grupo creado correctamente');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo crear el grupo');
     }
   };
 
@@ -114,26 +131,6 @@ export default function GruposScreen({ navigation, route }: any) {
     setRefreshing(false);
   };
 
-  // Crear Grupo
-  const handleCreateGrupo = async () => {
-    if (!nombreGrupo.trim()) {
-      Alert.alert('Error', 'El nombre del grupo es obligatorio');
-      return;
-    }
-
-    try {
-      const nuevoGrupo = await grupoService.crearGrupo(nombreGrupo, descripcionGrupo, usuarioActualId);
-      setModalGrupoVisible(false);
-      setNombreGrupo('');
-      setDescripcionGrupo('');
-      await loadGrupos();
-      setGrupoSeleccionadoId(nuevoGrupo.id);
-      Alert.alert('Éxito', 'Grupo creado correctamente');
-    } catch (error: any) {
-      Alert.alert('Error', error?.message || 'No se pudo crear el grupo');
-    }
-  };
-
   // Crear Gasto Compartido
   const handleCreateGasto = async () => {
     if (!concepto || !monto || !grupoSeleccionadoId) {
@@ -170,7 +167,6 @@ export default function GruposScreen({ navigation, route }: any) {
         },
         grupoId: grupoSeleccionadoId,
         tipoDivision,
-        userId: usuarioActualId,
         participantes: participantesPayload,
       });
 

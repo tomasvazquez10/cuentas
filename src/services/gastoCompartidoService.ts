@@ -1,24 +1,27 @@
 import { gastoCompartidoRepository } from '../repositories/gastoCompartidoRepository';
 import { participanteGastoRepository } from '../repositories/participanteGastoRepository';
-import { movimientoRepository } from '../repositories/movimientoRepository'; // Asumiendo que ya existe o está accesible
+import { movimientoRepository } from '../repositories/movimientoRepository';
+import { authRepository } from '../repositories/authRepository'; // 👈 Importar authRepository
 import { GastoCompartido, TipoDivision } from '../types';
 
+const getAuthenticatedUserId = async () => {
+  const user = await authRepository.currentUser();
+  if (!user) throw new Error('Debes iniciar sesión para realizar esta acción');
+  return user.id;
+};
+
 interface CrearGastoCompartidoDTO {
-  // Datos para la tabla 'movimientos'
   movimiento: {
     fecha: string;
-    tipo: any; // Ajusta al tipo exacto de tu app (ej. 'GASTO')
+    tipo: any;
     subtipo: any;
     concepto: string;
     metodo: any;
     monto: number;
     nota?: string;
   };
-  // Datos para 'gastos_compartidos'
   grupoId: string;
   tipoDivision: TipoDivision;
-  userId: string;
-  // Datos para 'participantes_gasto'
   participantes: Array<{
     usuarioId: string;
     porcentaje?: number;
@@ -36,17 +39,17 @@ export const gastoCompartidoService = {
     return await gastoCompartidoRepository.findById(id);
   },
 
-  /**
-   * Crea un movimiento financiero y lo distribuye automáticamente entre los participantes del grupo.
-   */
   async crearGastoCompartido(dto: CrearGastoCompartidoDTO): Promise<GastoCompartido> {
-    const { movimiento, grupoId, tipoDivision, userId, participantes } = dto;
+    const { movimiento, grupoId, tipoDivision, participantes } = dto;
 
     if (!participantes || participantes.length === 0) {
       throw new Error('Debe haber al menos un participante en el gasto compartido');
     }
 
-    // Paso 1: Crear el movimiento base en la tabla 'movimientos'
+    // 👈 Obtenemos el usuario autenticado automáticamente
+    const userId = await getAuthenticatedUserId();
+
+    // Paso 1: Crear el movimiento base
     const nuevoMovimiento = await movimientoRepository.create({
       ...movimiento,
       created_by: userId,
@@ -56,7 +59,7 @@ export const gastoCompartidoService = {
       throw new Error('Error al crear el movimiento base del gasto');
     }
 
-    // Paso 2: Crear el registro de 'gastos_compartidos'
+    // Paso 2: Crear el gasto compartido
     const nuevoGastoCompartido = await gastoCompartidoRepository.create({
       movimiento_id: nuevoMovimiento.id,
       grupo_id: grupoId,
@@ -68,13 +71,13 @@ export const gastoCompartidoService = {
       throw new Error('Error al registrar el gasto compartido');
     }
 
-    // Paso 3: Mapear e insertar los participantes en 'participantes_gasto'
+    // Paso 3: Insertar los participantes
     const participantesPayload = participantes.map((p) => ({
       gasto_compartido_id: nuevoGastoCompartido.id,
       usuario_id: p.usuarioId,
       porcentaje: p.porcentaje ?? null,
       monto_correspondiente: p.montoCorrespondiente,
-      pagado: false, // Por defecto inician como no pagados (excepto quizás el que paga, opcional)
+      pagado: false,
     }));
 
     await participanteGastoRepository.createMany(participantesPayload);
@@ -83,8 +86,6 @@ export const gastoCompartidoService = {
   },
 
   async eliminarGastoCompartido(id: string): Promise<void> {
-    // Al estar configurado en Supabase con restricciones de borrado en cascada (o manual),
-    // primero eliminamos los participantes, luego el gasto compartido y opcionalmente el movimiento.
     await participanteGastoRepository.deleteByGastoId(id);
     await gastoCompartidoRepository.delete(id);
   },

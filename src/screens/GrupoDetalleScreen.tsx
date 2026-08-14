@@ -125,7 +125,6 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
         },
         grupoId,
         tipoDivision,
-        userId,
         participantes: participantesPayload,
       });
 

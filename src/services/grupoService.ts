@@ -1,10 +1,18 @@
 import { grupoRepository } from '../repositories/grupoRepository';
 import { miembroGrupoRepository } from '../repositories/miembroGrupoRepository';
-import { Grupo, MiembroGrupo } from '../types';
+import { authRepository } from '../repositories/authRepository'; // 👈 Importamos tu authRepository
+import { Grupo } from '../types';
+
+// Helper interno siguiendo tu patrón
+const getAuthenticatedUserId = async () => {
+  const user = await authRepository.currentUser();
+  if (!user) throw new Error('Debes iniciar sesión para realizar esta acción');
+  return user.id;
+};
 
 export const grupoService = {
-  async obtenerGruposDelUsuario(userId: string): Promise<Grupo[]> {
-    if (!userId) throw new Error('Usuario no autenticado');
+  async obtenerGruposDelUsuario(): Promise<Grupo[]> {
+    const userId = await getAuthenticatedUserId();
     return await grupoRepository.findAllByUser(userId);
   },
 
@@ -14,23 +22,25 @@ export const grupoService = {
   },
 
   /**
-   * Crea un grupo y automáticamente añade al creador como miembro con rol ADMIN.
+   * Crea un grupo obteniendo automáticamente el ID del usuario autenticado
+   * y añadiéndolo como miembro ADMIN.
    */
   async crearGrupo(
     nombre: string,
-    descripcion: string | null,
-    userId: string
+    descripcion: string | null
   ): Promise<Grupo> {
     if (!nombre.trim()) throw new Error('El nombre del grupo es obligatorio');
 
-    // 1. Crear el grupo
+    const userId = await getAuthenticatedUserId();
+
+    // 1. Crear el grupo asignando el 'creado_por' con el usuario autenticado
     const nuevoGrupo = await grupoRepository.create({
       nombre,
       descripcion,
       creado_por: userId,
     });
 
-    // 2. Añadir al creador como miembro ADMIN
+    // 2. Añadir al creador como miembro ADMIN en la tabla intermedia
     await miembroGrupoRepository.addMember({
       grupo_id: nuevoGrupo.id,
       usuario_id: userId,
@@ -42,11 +52,11 @@ export const grupoService = {
 
   async actualizarGrupo(
     id: string,
-    userId: string,
     datosActualizados: Partial<Omit<Grupo, 'id' | 'created_at' | 'creado_por'>>
   ): Promise<Grupo> {
-    // Opcional: Podrías validar aquí si el usuario es ADMIN antes de dejarlo editar
+    const userId = await getAuthenticatedUserId();
     const grupo = await grupoRepository.findById(id);
+
     if (grupo.creado_por !== userId) {
       throw new Error('No tienes permisos para modificar este grupo');
     }
@@ -54,11 +64,14 @@ export const grupoService = {
     return await grupoRepository.update(id, datosActualizados);
   },
 
-  async eliminarGrupo(id: string, userId: string): Promise<void> {
+  async eliminarGrupo(id: string): Promise<void> {
+    const userId = await getAuthenticatedUserId();
     const grupo = await grupoRepository.findById(id);
+
     if (grupo.creado_por !== userId) {
       throw new Error('Solo el creador puede eliminar el grupo');
     }
+    
     await grupoRepository.delete(id);
   },
 };
