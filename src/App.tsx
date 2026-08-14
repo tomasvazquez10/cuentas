@@ -12,6 +12,8 @@ import MovimientosScreen from '@screens/MovimientosScreen';
 import CalendarioScreen from '@screens/CalendarioScreen';
 import PerfilScreen from '@screens/PerfilScreen';
 import TarjetasScreen from '@screens/TarjetasScreen';
+import GrupoDetalleScreen from '@screens/GrupoDetalleScreen';
+import GruposScreen from '@screens/GruposScreen';
 import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
@@ -82,6 +84,15 @@ function AppTabs() {
           title: 'Tarjetas',
           tabBarLabel: 'Tarjetas',
           tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>💳</Text>,
+        }}
+      />
+      <Tab.Screen
+        name="Grupos"
+        component={GruposScreen}
+        options={{
+          title: 'Grupos',
+          tabBarLabel: 'Grupos',
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 22, color }}>👥</Text>,
         }}
       />
       <Tab.Screen

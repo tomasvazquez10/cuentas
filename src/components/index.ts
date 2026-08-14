@@ -6,3 +6,7 @@ export { PagoCard } from './PagoCard';
 export { Card } from './Card';
 export { CustomModal } from './CustomModal';
 export { ConfirmDialog } from './ConfirmDialog';
+export { GastoCompartidoCard } from './GastoCompartidoCard';
+export { GrupoCard } from './GrupoCard';
+export { ParticipanteGastoCard } from './ParticipanteGastoCard';
+
