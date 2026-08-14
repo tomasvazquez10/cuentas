@@ -23,6 +23,9 @@
       ],
       "@models/*": [
         "src/types/*"
+      ],
+      "@navigators/*": [
+        "src/navigators/*"
       ]
     }
   }

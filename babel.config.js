@@ -17,6 +17,7 @@ module.exports = function (api) {
             '@repositories': './src/repositories',
             '@utils': './src/utils',
             '@models': './src/types',
+            '@navigators': './src/navigators'
           },
         },
       ],

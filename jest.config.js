@@ -8,6 +8,7 @@ module.exports = {
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@types/(.*)$': '<rootDir>/src/types/$1',
     '^@context/(.*)$': '<rootDir>/src/context/$1',
+    '^@repositories/(.*)$': '<rootDir>/src/repositories/$1'
   },
   testEnvironment: 'node',
 };

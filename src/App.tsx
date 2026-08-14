@@ -12,8 +12,7 @@ import MovimientosScreen from '@screens/MovimientosScreen';
 import CalendarioScreen from '@screens/CalendarioScreen';
 import PerfilScreen from '@screens/PerfilScreen';
 import TarjetasScreen from '@screens/TarjetasScreen';
-import GrupoDetalleScreen from '@screens/GrupoDetalleScreen';
-import GruposScreen from '@screens/GruposScreen';
+import GruposNavigator from '@navigators/GruposNavigator';
 import { createStackNavigator } from '@react-navigation/stack';
 
 const Stack = createStackNavigator();
@@ -88,7 +87,7 @@ function AppTabs() {
       />
       <Tab.Screen
         name="Grupos"
-        component={GruposScreen}
+        component={GruposNavigator}
         options={{
           title: 'Grupos',
           tabBarLabel: 'Grupos',
