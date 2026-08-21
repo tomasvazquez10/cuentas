@@ -11,7 +11,17 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, getMetodoColor } from '@utils/colors';
 import { movimientoService } from '@services/movimientoService';
-import { Button, Input, CustomModal, MovimientoCard, StatCard, ConfirmDialog } from '@components/index';
+import {
+  Button,
+  Input,
+  CustomModal,
+  MovimientoCard,
+  StatCard,
+  ConfirmDialog,
+  DatePickerField,
+  DropdownField,
+  DropdownOption,
+} from '@components/index';
 import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
@@ -23,7 +33,16 @@ const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
 
 const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
 const METODOS_TARJETA: MetodoMovimiento[] = ['VISA', 'AMEX', 'MERCADOPAGO'];
+const TIPOS_MOVIMIENTO: TipoMovimiento[] = ['ENTRADA', 'GASTO', 'AHORRO', 'INVERSION'];
+const CUOTAS_OPTIONS: DropdownOption<string>[] = [
+  { label: 'Sin cuotas', value: '' },
+  ...Array.from({ length: 12 }, (_, index) => {
+    const value = String(index + 1);
+    return { label: value, value };
+  }),
+];
 type FiltroMetodo = MetodoMovimiento;
+type MovimientoModalMode = 'create' | 'detail' | 'edit';
 
 const getCuotasData = (cuotaActual: string, totalCuotas: string) => {
   const cuotaText = cuotaActual.trim();
@@ -50,6 +69,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [movimientoModalMode, setMovimientoModalMode] = useState<MovimientoModalMode>('create');
   const [movimientoSeleccionado, setMovimientoSeleccionado] = useState<Movimiento | null>(null);
   const [confirmandoBorrado, setConfirmandoBorrado] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
@@ -118,6 +138,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
 
   const cerrarModal = () => {
     setModalVisible(false);
+    setMovimientoModalMode('create');
     setMovimientoSeleccionado(null);
     setConfirmandoBorrado(false);
     setCuotasPendientes(null);
@@ -137,6 +158,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     if (!prefill) return;
 
     setMovimientoSeleccionado(null);
+    setMovimientoModalMode('create');
     setTipo(prefill.tipo as TipoMovimiento);
     setSubtipo(prefill.subtipo as SubtipoMovimiento);
     setMetodo(prefill.metodo as MetodoMovimiento);
@@ -151,7 +173,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     navigation.setParams({ prefillMovimiento: undefined });
   }, [navigation, route?.params?.prefillMovimiento]);
 
-  const abrirEdicion = (movimiento: Movimiento) => {
+  const cargarMovimientoEnFormulario = (movimiento: Movimiento) => {
     setMovimientoSeleccionado(movimiento);
     setTipo(movimiento.tipo as TipoMovimiento);
     setSubtipo(movimiento.subtipo as SubtipoMovimiento);
@@ -164,12 +186,65 @@ export default function MovimientosScreen({ navigation, route }: any) {
     setTotalCuotas(movimiento.total_cuotas ? String(movimiento.total_cuotas) : '');
     setCompraId(movimiento.compra_id);
     setConfirmandoBorrado(false);
+  };
+
+  const abrirDetalle = (movimiento: Movimiento) => {
+    cargarMovimientoEnFormulario(movimiento);
+    setMovimientoModalMode('detail');
     setModalVisible(true);
   };
+
+  const activarEdicionMovimiento = () => {
+    setMovimientoModalMode('edit');
+    setConfirmandoBorrado(false);
+  };
+
+  const toOptionLabel = (value: string) =>
+    value
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+  const tipoOptions: DropdownOption<TipoMovimiento>[] = TIPOS_MOVIMIENTO.map((value) => ({
+    label: toOptionLabel(value),
+    value,
+  }));
+
+  const subtipoOptions: DropdownOption<SubtipoMovimiento>[] = SUBTIPOS_POR_TIPO[tipo].map(
+    (value) => ({
+      label: toOptionLabel(value),
+      value,
+    })
+  );
+
+  const metodoOptions: DropdownOption<MetodoMovimiento>[] = METODOS.map((value) => ({
+    label: toOptionLabel(value),
+    value,
+  }));
 
   const handleTipoChange = (nuevoTipo: TipoMovimiento) => {
     setTipo(nuevoTipo);
     setSubtipo(SUBTIPOS_POR_TIPO[nuevoTipo][0]);
+  };
+
+  const handleCuotaActualChange = (value: string) => {
+    setCuotaActual(value);
+    if (value && (!totalCuotas || Number(totalCuotas) < Number(value))) {
+      setTotalCuotas(value);
+    }
+  };
+
+  const handleTotalCuotasChange = (value: string) => {
+    setTotalCuotas(value);
+    if (!value) {
+      setCuotaActual('');
+      return;
+    }
+
+    if (!cuotaActual || Number(cuotaActual) > Number(value)) {
+      setCuotaActual('1');
+    }
   };
 
   const cambiarMes = (desplazamiento: number) => {
@@ -403,6 +478,15 @@ export default function MovimientosScreen({ navigation, route }: any) {
     }
   };
 
+  const isMovimientoReadOnly = movimientoModalMode === 'detail';
+  const isMovimientoEditMode = movimientoModalMode === 'edit';
+  const movimientoModalTitle =
+    movimientoModalMode === 'create'
+      ? 'Nuevo Movimiento'
+      : isMovimientoReadOnly
+        ? 'Detalle del Movimiento'
+        : 'Editar Movimiento';
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -483,7 +567,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
               <MovimientoCard
                 key={mov.id}
                 movimiento={mov}
-                onPress={() => abrirEdicion(mov)}
+                onPress={() => abrirDetalle(mov)}
                 hideSign={filtroEsTarjeta}
               />
             ))}
@@ -496,6 +580,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
           accessibilityLabel="Nuevo movimiento"
           onPress={() => {
             setMovimientoSeleccionado(null);
+            setMovimientoModalMode('create');
             resetForm();
             setModalVisible(true);
           }}
@@ -507,57 +592,35 @@ export default function MovimientosScreen({ navigation, route }: any) {
 
       <CustomModal
         visible={modalVisible}
-        title={movimientoSeleccionado ? 'Editar Movimiento' : 'Nuevo Movimiento'}
+        title={movimientoModalTitle}
         onClose={cerrarModal}
         footer={
           <View style={styles.modalFooter}>
-            <Button
-              title="Cancelar"
-              onPress={cerrarModal}
-              variant="secondary"
-            />
-            <Button
-              title={movimientoSeleccionado ? 'Guardar' : 'Crear'}
-              onPress={movimientoSeleccionado ? handleUpdateMovimiento : handleCreateMovimiento}
-              variant="primary"
-            />
+            {isMovimientoReadOnly ? (
+              <>
+                <Button title="Cerrar" onPress={cerrarModal} variant="secondary" />
+                <Button title="Editar" onPress={activarEdicionMovimiento} variant="primary" />
+              </>
+            ) : (
+              <>
+                <Button title="Cancelar" onPress={cerrarModal} variant="secondary" />
+                <Button
+                  title={isMovimientoEditMode ? 'Guardar' : 'Crear'}
+                  onPress={isMovimientoEditMode ? handleUpdateMovimiento : handleCreateMovimiento}
+                  variant="primary"
+                />
+              </>
+            )}
           </View>
         }
       >
         <View>
-          <Text style={styles.label}>Tipo</Text>
-          <View style={styles.typeButtons}>
-            <Button
-              title="Entrada"
-              onPress={() => handleTipoChange('ENTRADA')}
-              variant={tipo === 'ENTRADA' ? 'success' : 'secondary'}
-              size="small"
-            />
-            <Button
-              title="Gasto"
-              onPress={() => handleTipoChange('GASTO')}
-              variant={tipo === 'GASTO' ? 'danger' : 'secondary'}
-              size="small"
-            />
-            <Button
-              title="Ahorro"
-              onPress={() => handleTipoChange('AHORRO')}
-              variant={tipo === 'AHORRO' ? 'danger' : 'secondary'}
-              size="small"
-            />
-            <Button
-              title="Inversión"
-              onPress={() => handleTipoChange('INVERSION')}
-              variant={tipo === 'INVERSION' ? 'danger' : 'secondary'}
-              size="small"
-            />
-          </View>
-
           <Input
             label="Concepto"
-            placeholder="Descripción del movimiento"
+            placeholder="Descripcion del movimiento"
             value={concepto}
             onChangeText={setConcepto}
+            editable={!isMovimientoReadOnly}
           />
 
           <Input
@@ -566,39 +629,65 @@ export default function MovimientosScreen({ navigation, route }: any) {
             value={monto}
             onChangeText={setMonto}
             keyboardType="decimal-pad"
+            editable={!isMovimientoReadOnly}
           />
 
-          <Input
+          <DatePickerField
             label="Fecha"
-            placeholder="YYYY-MM-DD"
             value={fecha}
-            onChangeText={setFecha}
+            onChange={setFecha}
+            disabled={isMovimientoReadOnly}
           />
+
+          <View style={styles.formGroup}>
+            <Text style={styles.formGroupTitle}>Detalle del movimiento</Text>
+            <DropdownField
+              label="Tipo"
+              value={tipo}
+              options={tipoOptions}
+              onChange={handleTipoChange}
+              disabled={isMovimientoReadOnly}
+            />
+            <DropdownField
+              label="Categoria"
+              value={subtipo}
+              options={subtipoOptions}
+              onChange={(value) => setSubtipo(value as SubtipoMovimiento)}
+              disabled={isMovimientoReadOnly}
+            />
+            <DropdownField
+              label="Metodo de pago"
+              value={metodo}
+              options={metodoOptions}
+              onChange={(value) => setMetodo(value as MetodoMovimiento)}
+              disabled={isMovimientoReadOnly}
+            />
+          </View>
 
           <Text style={styles.label}>Cuotas (opcional)</Text>
           <View style={styles.installmentsContainer}>
             <View style={styles.installmentInput}>
-              <Input
+              <DropdownField
                 label="Cuota actual"
-                placeholder="Ej. 1"
                 value={cuotaActual}
-                onChangeText={setCuotaActual}
-                keyboardType="number-pad"
+                options={CUOTAS_OPTIONS}
+                onChange={handleCuotaActualChange}
+                disabled={isMovimientoReadOnly}
               />
             </View>
             <Text style={styles.installmentSeparator}>de</Text>
             <View style={styles.installmentInput}>
-              <Input
+              <DropdownField
                 label="Total cuotas"
-                placeholder="Ej. 6"
                 value={totalCuotas}
-                onChangeText={setTotalCuotas}
-                keyboardType="number-pad"
+                options={CUOTAS_OPTIONS}
+                onChange={handleTotalCuotasChange}
+                disabled={isMovimientoReadOnly}
               />
             </View>
           </View>
 
-          {cuotasPendientes && (
+          {cuotasPendientes && !isMovimientoReadOnly && (
             <View style={styles.installmentWarning}>
               <Text style={styles.installmentWarningTitle}>Crear cuotas siguientes?</Text>
               <Text style={styles.installmentWarningText}>
@@ -621,33 +710,6 @@ export default function MovimientosScreen({ navigation, route }: any) {
             </View>
           )}
 
-          <Text style={styles.label}>Categoría</Text>
-          <View style={styles.optionsContainer}>
-            {SUBTIPOS_POR_TIPO[tipo].map((s) => (
-              <Button
-                key={s}
-                title={s}
-                onPress={() => setSubtipo(s)}
-                variant={subtipo === s ? 'primary' : 'secondary'}
-                size="small"
-              />
-            ))}
-          </View>
-
-          <Text style={styles.label}>Método de Pago</Text>
-          <View style={styles.optionsContainer}>
-            {METODOS.map((m) => (
-              <Button
-                key={m}
-                title={m}
-                onPress={() => setMetodo(m)}
-                variant={metodo === m ? 'primary' : 'secondary'}
-                color={metodo === m ? getMetodoColor(m) : undefined}
-                size="small"
-              />
-            ))}
-          </View>
-
           <Input
             label="Nota (opcional)"
             placeholder="Agregar una nota"
@@ -655,9 +717,10 @@ export default function MovimientosScreen({ navigation, route }: any) {
             onChangeText={setNota}
             multiline
             numberOfLines={3}
+            editable={!isMovimientoReadOnly}
           />
 
-          {movimientoSeleccionado && (
+          {movimientoSeleccionado && !isMovimientoReadOnly && (
             <View style={styles.deleteSection}>
               {confirmandoBorrado ? (
                 <View style={styles.deleteWarning}>
@@ -874,6 +937,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
+  },
+  formGroup: {
+    backgroundColor: '#fff',
+    borderColor: colors.gray[200],
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 12,
+  },
+  formGroupTitle: {
+    color: colors.gray[500],
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    textTransform: 'uppercase',
   },
   modalFooter: {
     flexDirection: 'row',

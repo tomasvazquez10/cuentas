@@ -22,6 +22,7 @@ interface CrearGastoCompartidoDTO {
   };
   grupoId: string;
   tipoDivision: TipoDivision;
+  pagadoPorUsuarioId?: string;
   participantes: Array<{
     usuarioId: string;
     porcentaje?: number;
@@ -40,19 +41,20 @@ export const gastoCompartidoService = {
   },
 
   async crearGastoCompartido(dto: CrearGastoCompartidoDTO): Promise<GastoCompartido> {
-    const { movimiento, grupoId, tipoDivision, participantes } = dto;
+    const { movimiento, grupoId, tipoDivision, pagadoPorUsuarioId, participantes } = dto;
 
     if (!participantes || participantes.length === 0) {
       throw new Error('Debe haber al menos un participante en el gasto compartido');
     }
 
     // 👈 Obtenemos el usuario autenticado automáticamente
-    const userId = await getAuthenticatedUserId();
+    const authenticatedUserId = await getAuthenticatedUserId();
+    const payerUserId = pagadoPorUsuarioId || authenticatedUserId;
 
     // Paso 1: Crear el movimiento base
     const nuevoMovimiento = await movimientoRepository.create({
       ...movimiento,
-      created_by: userId,
+      created_by: payerUserId,
     });
 
     if (!nuevoMovimiento || !nuevoMovimiento.id) {
@@ -64,7 +66,7 @@ export const gastoCompartidoService = {
       movimiento_id: nuevoMovimiento.id,
       grupo_id: grupoId,
       tipo_division: tipoDivision,
-      created_by: userId,
+      created_by: payerUserId,
     });
 
     if (!nuevoGastoCompartido || !nuevoGastoCompartido.id) {

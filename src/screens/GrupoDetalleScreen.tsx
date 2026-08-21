@@ -10,13 +10,30 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
-import { Button, Input, CustomModal, GastoCompartidoCard, StatCard, ConfirmDialog } from '@components/index';
+import {
+  Button,
+  Input,
+  CustomModal,
+  GastoCompartidoCard,
+  StatCard,
+  ConfirmDialog,
+  DatePickerField,
+  DropdownField,
+  DropdownOption,
+} from '@components/index';
 import { Grupo, GastoCompartido, MiembroGrupo, TipoDivision, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
 import { grupoService } from '@services/grupoService';
 import { miembroGrupoService } from '@services/miembroGrupoService';
 import { gastoCompartidoService } from '@services/gastoCompartidoService';
+import { authService } from '@services/authService';
 
-const SUBTIPOS_GASTO: SubtipoMovimiento[] = ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER'];
+const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
+  ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
+  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER'],
+  AHORRO: ['DOLAR'],
+  INVERSION: ['CEDEARS'],
+};
+const TIPOS_MOVIMIENTO: TipoMovimiento[] = ['ENTRADA', 'GASTO', 'AHORRO', 'INVERSION'];
 const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
 
 export default function GrupoDetalleScreen({ navigation, route }: any) {
@@ -27,15 +44,20 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
   const [miembros, setMiembros] = useState<MiembroGrupo[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [miembrosExpanded, setMiembrosExpanded] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState('');
 
   // Estados del Modal para Nuevo Gasto Compartido
   const [modalVisible, setModalVisible] = useState(false);
   const [concepto, setConcepto] = useState('');
   const [monto, setMonto] = useState('');
+  const [tipoMovimiento, setTipoMovimiento] = useState<TipoMovimiento>('GASTO');
   const [tipoDivision, setTipoDivision] = useState<TipoDivision>('IGUALITARIO');
   const [subtipo, setSubtipo] = useState<SubtipoMovimiento>('SALIDAS');
   const [metodo, setMetodo] = useState<MetodoMovimiento>('EFECTIVO');
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
+  const [pagadoPorUsuarioId, setPagadoPorUsuarioId] = useState('');
+  const [participantesSeleccionados, setParticipantesSeleccionados] = useState<string[]>([]);
 
   // Diálogo de confirmación para eliminar gasto
   const [gastoAEliminar, setGastoAEliminar] = useState<string | null>(null);
@@ -71,13 +93,74 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
     setRefreshing(false);
   };
 
-  const resetForm = () => {
+  const getMiembroNombre = (miembro: MiembroGrupo) =>
+    miembro.perfiles?.nombre || miembro.perfiles?.email || 'Miembro';
+
+  const getMiembroInicial = (miembro: MiembroGrupo) =>
+    getMiembroNombre(miembro).trim().charAt(0).toUpperCase() || 'M';
+
+  const toOptionLabel = (value: string) =>
+    value
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+  const tipoOptions: DropdownOption<TipoMovimiento>[] = TIPOS_MOVIMIENTO.map((value) => ({
+    label: toOptionLabel(value),
+    value,
+  }));
+
+  const subtipoOptions: DropdownOption<SubtipoMovimiento>[] = SUBTIPOS_POR_TIPO[
+    tipoMovimiento
+  ].map((value) => ({
+    label: toOptionLabel(value),
+    value,
+  }));
+
+  const metodoOptions: DropdownOption<MetodoMovimiento>[] = METODOS.map((value) => ({
+    label: toOptionLabel(value),
+    value,
+  }));
+
+  const handleTipoMovimientoChange = (nuevoTipo: TipoMovimiento) => {
+    setTipoMovimiento(nuevoTipo);
+    setSubtipo(SUBTIPOS_POR_TIPO[nuevoTipo][0]);
+  };
+
+  const getDefaultPayerId = (userId = currentUserId) => {
+    const currentMember = miembros.find((m) => m.usuario_id === userId);
+    return currentMember?.usuario_id || miembros[0]?.usuario_id || userId || '';
+  };
+
+  const resetForm = (userId = currentUserId) => {
     setConcepto('');
     setMonto('');
+    setTipoMovimiento('GASTO');
     setTipoDivision('IGUALITARIO');
     setSubtipo('SALIDAS');
     setMetodo('EFECTIVO');
     setFecha(new Date().toISOString().split('T')[0]);
+    setPagadoPorUsuarioId(getDefaultPayerId(userId));
+    setParticipantesSeleccionados(miembros.map((m) => m.usuario_id));
+  };
+
+  const abrirModalNuevoGasto = async () => {
+    const authUser = await authService.getCurrentUser();
+    const userId = authUser?.id || '';
+    setCurrentUserId(userId);
+    resetForm(userId);
+    setModalVisible(true);
+  };
+
+  const toggleParticipante = (usuarioId: string) => {
+    setParticipantesSeleccionados((prev) => {
+      if (prev.includes(usuarioId)) {
+        return prev.filter((id) => id !== usuarioId);
+      }
+
+      return [...prev, usuarioId];
+    });
   };
 
   const cerrarModal = () => {
@@ -102,22 +185,36 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
       return;
     }
 
+    if (!pagadoPorUsuarioId) {
+      Alert.alert('Error', 'Selecciona quien pago el gasto');
+      return;
+    }
+
+    if (participantesSeleccionados.length === 0) {
+      Alert.alert('Error', 'Selecciona a quien le corresponde el gasto');
+      return;
+    }
+
     try {
       // Lógica de división igualitaria por defecto
-      const montoPorPersona = Number((montoNumerico / miembros.length).toFixed(2));
-      const participantesPayload = miembros.map((m) => ({
-        usuarioId: m.usuario_id,
+      const montoPorPersona = Number((montoNumerico / participantesSeleccionados.length).toFixed(2));
+      const participantesPayload = participantesSeleccionados.map((usuarioId) => ({
+        usuarioId,
         montoCorrespondiente: montoPorPersona,
       }));
 
-      // Asumiendo que el usuario actual es quien crea el gasto (puedes obtener el ID de tu AuthContext o servicio de sesión)
-      // Nota: Asegúrate de pasar el ID del usuario logueado actual si lo manejas globalmente.
-      const userId = miembros[0]?.usuario_id; // Ejemplo temporal, idealmente sacarlo de tu contexto de Auth
-
+      const diferenciaRedondeo = Number(
+        (montoNumerico - montoPorPersona * participantesPayload.length).toFixed(2)
+      );
+      if (participantesPayload.length > 0 && diferenciaRedondeo !== 0) {
+        participantesPayload[0].montoCorrespondiente = Number(
+          (participantesPayload[0].montoCorrespondiente + diferenciaRedondeo).toFixed(2)
+        );
+      }
       await gastoCompartidoService.crearGastoCompartido({
         movimiento: {
           fecha,
-          tipo: 'GASTO' as TipoMovimiento,
+          tipo: tipoMovimiento,
           subtipo,
           concepto,
           metodo,
@@ -125,6 +222,7 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
         },
         grupoId,
         tipoDivision,
+        pagadoPorUsuarioId,
         participantes: participantesPayload,
       });
 
@@ -154,7 +252,18 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{grupo?.nombre || grupoNombre || 'Detalle del Grupo'}</Text>
+          <View style={styles.headerTitleRow}>
+            <TouchableOpacity
+              accessibilityLabel="Volver"
+              onPress={() => navigation.goBack()}
+              style={styles.backButton}
+            >
+              <Text style={styles.backButtonText}>‹</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {grupo?.nombre || grupoNombre || 'Grupo'}
+            </Text>
+          </View>
           <Text style={styles.headerSubtitle}>{grupo?.descripcion || 'Gastos compartidos del grupo'}</Text>
         </View>
 
@@ -165,21 +274,35 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
             type="egreso"
           />
         </View>
-
-        {/* Sección de Miembros */}
+        {/* Seccion de Miembros */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>MIEMBROS ({miembros.length})</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miembrosScroll}>
-            {miembros.map((m: any) => (
-              <View key={m.id} style={styles.miembroChip}>
-                <Text style={styles.miembroAvatar}>👤</Text>
-                <Text style={styles.miembroNombre}>{m.perfiles?.nombre || m.perfiles?.email || 'Miembro'}</Text>
-                <Text style={styles.miembroRol}>{m.rol}</Text>
-              </View>
-            ))}
-          </ScrollView>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setMiembrosExpanded((prev) => !prev)}
+            style={styles.membersSummary}
+          >
+            <View>
+              <Text style={styles.sectionTitleCompact}>MIEMBROS</Text>
+              <Text style={styles.membersHint}>
+                {miembrosExpanded ? 'Ocultar integrantes' : 'Ver integrantes'}
+              </Text>
+            </View>
+            <View style={styles.membersCountContainer}>
+              <Text style={styles.membersCount}>{miembros.length}</Text>
+            </View>
+          </TouchableOpacity>
+          {miembrosExpanded && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miembrosScroll}>
+              {miembros.map((m) => (
+                <View key={m.id} style={styles.miembroChip}>
+                  <Text style={styles.miembroAvatar}>{getMiembroInicial(m)}</Text>
+                  <Text style={styles.miembroNombre}>{getMiembroNombre(m)}</Text>
+                  <Text style={styles.miembroRol}>{m.rol}</Text>
+                </View>
+              ))}
+            </ScrollView>
+          )}
         </View>
-
         {/* Sección de Gastos Compartidos */}
         <View style={styles.sectionContainer}>
           <Text style={styles.sectionTitle}>GASTOS COMPARTIDOS</Text>
@@ -208,10 +331,7 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
       <View style={styles.fabContainer}>
         <TouchableOpacity
           accessibilityLabel="Nuevo gasto compartido"
-          onPress={() => {
-            resetForm();
-            setModalVisible(true);
-          }}
+          onPress={abrirModalNuevoGasto}
           style={styles.fab}
         >
           <Text style={styles.fabText}>+</Text>
@@ -246,39 +366,78 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
             keyboardType="decimal-pad"
           />
 
-          <Input
-            label="Fecha"
-            placeholder="YYYY-MM-DD"
-            value={fecha}
-            onChangeText={setFecha}
-          />
+          <DatePickerField label="Fecha" value={fecha} onChange={setFecha} />
 
-          <Text style={styles.label}>Categoría del Gasto</Text>
-          <View style={styles.optionsContainer}>
-            {SUBTIPOS_GASTO.map((s) => (
-              <Button
-                key={s}
-                title={s}
-                onPress={() => setSubtipo(s)}
-                variant={subtipo === s ? 'primary' : 'secondary'}
-                size="small"
-              />
-            ))}
+          <View style={styles.formGroup}>
+            <Text style={styles.formGroupTitle}>Detalle del gasto</Text>
+            <DropdownField
+              label="Tipo"
+              value={tipoMovimiento}
+              options={tipoOptions}
+              onChange={(value) => handleTipoMovimientoChange(value as TipoMovimiento)}
+            />
+            <DropdownField
+              label="Categoria"
+              value={subtipo}
+              options={subtipoOptions}
+              onChange={(value) => setSubtipo(value as SubtipoMovimiento)}
+            />
+            <DropdownField
+              label="Metodo de pago"
+              value={metodo}
+              options={metodoOptions}
+              onChange={(value) => setMetodo(value as MetodoMovimiento)}
+            />
           </View>
 
-          <Text style={styles.label}>Método de Pago</Text>
-          <View style={styles.optionsContainer}>
-            {METODOS.map((m) => (
-              <Button
-                key={m}
-                title={m}
-                onPress={() => setMetodo(m)}
-                variant={metodo === m ? 'primary' : 'secondary'}
-                size="small"
-              />
-            ))}
+          <Text style={styles.label}>Quien pago</Text>
+          <View style={styles.selectionList}>
+            {miembros.map((m) => {
+              const selected = pagadoPorUsuarioId === m.usuario_id;
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  activeOpacity={0.85}
+                  onPress={() => setPagadoPorUsuarioId(m.usuario_id)}
+                  style={[styles.memberOption, selected && styles.memberOptionSelected]}
+                >
+                  <View style={[styles.memberOptionMark, selected && styles.memberOptionMarkSelected]}>
+                    {selected && <Text style={styles.memberOptionMarkText}>OK</Text>}
+                  </View>
+                  <View style={styles.memberOptionContent}>
+                    <Text style={styles.memberOptionName}>{getMiembroNombre(m)}</Text>
+                    <Text style={styles.memberOptionMeta}>{m.usuario_id === currentUserId ? 'Usuario actual' : m.rol}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </View>
+
+          <Text style={styles.label}>A quien le corresponde</Text>
+          <View style={styles.selectionList}>
+            {miembros.map((m) => {
+              const selected = participantesSeleccionados.includes(m.usuario_id);
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  activeOpacity={0.85}
+                  onPress={() => toggleParticipante(m.usuario_id)}
+                  style={[styles.memberOption, selected && styles.memberOptionSelected]}
+                >
+                  <View style={[styles.memberOptionMark, selected && styles.memberOptionMarkSelected]}>
+                    {selected && <Text style={styles.memberOptionMarkText}>OK</Text>}
+                  </View>
+                  <View style={styles.memberOptionContent}>
+                    <Text style={styles.memberOptionName}>{getMiembroNombre(m)}</Text>
+                    <Text style={styles.memberOptionMeta}>
+                      {selected ? 'Incluido en partes iguales' : 'No incluido'}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+</View>
       </CustomModal>
 
       {/* Diálogo de Confirmación de Borrado */}
@@ -312,7 +471,25 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
+  headerTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+  },
+  backButton: {
+    alignItems: 'center',
+    height: 36,
+    justifyContent: 'center',
+    marginRight: 8,
+    width: 32,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 36,
+    fontWeight: '300',
+    lineHeight: 36,
+  },
   headerTitle: {
+    flex: 1,
     fontSize: 22,
     fontWeight: '800',
     color: '#fff',
@@ -336,6 +513,47 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.8,
     marginBottom: 10,
+  },
+  sectionTitleCompact: {
+    color: colors.gray[500],
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 3,
+  },
+  membersSummary: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    elevation: 2,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 9,
+  },
+  membersHint: {
+    color: colors.dark,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  membersCountContainer: {
+    alignItems: 'center',
+    backgroundColor: '#EEEDFF',
+    borderRadius: 12,
+    height: 38,
+    justifyContent: 'center',
+    minWidth: 46,
+    paddingHorizontal: 10,
+  },
+  membersCount: {
+    color: colors.primary,
+    fontSize: 18,
+    fontWeight: '800',
   },
   miembrosScroll: {
     flexDirection: 'row',
@@ -419,6 +637,74 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 16,
+  },
+  formGroup: {
+    backgroundColor: '#fff',
+    borderColor: colors.gray[200],
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 16,
+    padding: 12,
+  },
+  formGroupTitle: {
+    color: colors.gray[500],
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+  },
+  selectionList: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  memberOption: {
+    alignItems: 'center',
+    backgroundColor: colors.gray[50],
+    borderColor: colors.gray[200],
+    borderRadius: 14,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  memberOptionSelected: {
+    backgroundColor: '#EEEDFF',
+    borderColor: colors.primary,
+  },
+  memberOptionMark: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: colors.gray[300],
+    borderRadius: 10,
+    borderWidth: 1,
+    height: 28,
+    justifyContent: 'center',
+    marginRight: 10,
+    width: 34,
+  },
+  memberOptionMarkSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  memberOptionMarkText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  memberOptionContent: {
+    flex: 1,
+  },
+  memberOptionName: {
+    color: colors.dark,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  memberOptionMeta: {
+    color: colors.gray[500],
+    fontSize: 12,
+    marginTop: 2,
   },
   modalFooter: {
     flexDirection: 'row',

@@ -1,6 +1,5 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { colors } from '@utils/colors';
 import GruposScreen from '@screens/GruposScreen';
 import GrupoDetalleScreen from '@screens/GrupoDetalleScreen';
 
@@ -18,11 +17,7 @@ export default function GruposNavigator() {  // 👈 Añadimos 'default' aquí
         name="GrupoDetalleScreen" 
         component={GrupoDetalleScreen} 
         options={{
-          headerShown: true,
-          title: 'Detalle del Grupo',
-          headerStyle: { backgroundColor: colors.primary },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' },
+          headerShown: false,
         }}
       />
     </Stack.Navigator>
