@@ -261,7 +261,7 @@ export default function CalendarioScreen({ navigation }: any) {
   const pagosDelMes = pagos.filter((pago) => getPagoDateKey(pago.fecha).slice(0, 7) === claveMes);
   const pagosMostrados = diasSeleccionados.length
     ? pagosDelMes.filter((pago) => diasSeleccionados.includes(getPagoDateKey(pago.fecha)))
-    : pagosDelMes;
+    : pagosDelMes.filter((pago) => !pago.pago);
   const pagosVencidos = pagos.filter((pago) => !pago.pago && getPagoDateKey(pago.fecha) <= claveHoy);
   const totalPagosVencidos = pagosVencidos.reduce((total, pago) => total + pago.monto, 0);
   const pagosManana = pagos.filter((pago) => !pago.pago && getPagoDateKey(pago.fecha) === claveManana);
@@ -498,7 +498,7 @@ export default function CalendarioScreen({ navigation }: any) {
             <Text style={styles.emptyText}>
               {diasSeleccionados.length
                 ? 'No hay pagos para los dias seleccionados'
-                : 'No hay pagos agendados en este mes'}
+                : 'No hay pagos pendientes en este mes'}
             </Text>
           ) : (
             pagosMostrados.map((pago) => (

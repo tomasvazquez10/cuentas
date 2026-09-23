@@ -19,7 +19,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 const SIDEBAR_WIDTH = 236;
-const COLLAPSED_SIDEBAR_WIDTH = 72;
 
 const sidebarItems = [
   { name: 'Home', label: 'Inicio', icon: '🏠' },
@@ -51,16 +50,29 @@ function SidebarProvider({ children }: { children: React.ReactNode }) {
 function SidebarTabBar({ state, navigation }: BottomTabBarProps) {
   const { collapsed, toggle } = useContext(SidebarContext);
 
-  return (
-    <View style={[styles.sidebar, { width: collapsed ? COLLAPSED_SIDEBAR_WIDTH : SIDEBAR_WIDTH }]}>
+  if (collapsed) {
+    return (
       <Pressable
-        accessibilityLabel={collapsed ? 'Expandir navegación' : 'Ocultar navegación'}
+        accessibilityLabel="Mostrar navegación"
+        accessibilityRole="button"
+        onPress={toggle}
+        style={styles.floatingMenuButton}
+      >
+        <Text style={styles.floatingMenuIcon}>☰</Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.sidebar}>
+      <Pressable
+        accessibilityLabel="Ocultar navegación"
         accessibilityRole="button"
         onPress={toggle}
         style={styles.toggleButton}
       >
-        <Text style={styles.toggleIcon}>{collapsed ? '›' : '‹'}</Text>
-        {!collapsed && <Text style={styles.toggleLabel}>Ocultar menú</Text>}
+        <Text style={styles.toggleIcon}>‹</Text>
+        <Text style={styles.toggleLabel}>Ocultar menú</Text>
       </Pressable>
 
       <View style={styles.menu}>
@@ -76,11 +88,9 @@ function SidebarTabBar({ state, navigation }: BottomTabBarProps) {
               style={[styles.menuItem, focused && styles.menuItemActive]}
             >
               <Text style={styles.menuIcon}>{item.icon}</Text>
-              {!collapsed && (
-                <Text style={[styles.menuLabel, focused && styles.menuLabelActive]}>
-                  {item.label}
-                </Text>
-              )}
+              <Text style={[styles.menuLabel, focused && styles.menuLabelActive]}>
+                {item.label}
+              </Text>
             </Pressable>
           );
         })}
@@ -93,7 +103,7 @@ function SidebarScreen({ children }: { children: React.ReactNode }) {
   const { collapsed } = useContext(SidebarContext);
 
   return (
-    <View style={[styles.screen, { marginLeft: collapsed ? COLLAPSED_SIDEBAR_WIDTH : SIDEBAR_WIDTH }]}>
+    <View style={[styles.screen, { marginLeft: collapsed ? 0 : SIDEBAR_WIDTH }]}>
       {children}
     </View>
   );
@@ -200,7 +210,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 14,
     top: 0,
+    width: SIDEBAR_WIDTH,
     zIndex: 10,
+  },
+  floatingMenuButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    elevation: 12,
+    height: 44,
+    justifyContent: 'center',
+    left: 14,
+    position: 'absolute',
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    top: 14,
+    width: 44,
+    zIndex: 20,
+  },
+  floatingMenuIcon: {
+    color: colors.primary,
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 26,
   },
   toggleButton: {
     alignItems: 'center',

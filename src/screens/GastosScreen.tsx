@@ -15,7 +15,14 @@ import { colors } from '@utils/colors';
 import { formatMoney } from '@utils/formatting';
 import { StatCard } from '@components/index';
 
-const SUBTIPOS_GASTO: SubtipoMovimiento[] = ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER'];
+const SUBTIPOS_GASTO: SubtipoMovimiento[] = [
+  'FIJO',
+  'BOLUDES',
+  'DEPTO',
+  'SALIDAS',
+  'SUPER',
+  'VIAJES',
+];
 
 const SUBTIPO_COLORS: Record<string, string> = {
   FIJO: '#4F46E5',
@@ -23,6 +30,7 @@ const SUBTIPO_COLORS: Record<string, string> = {
   DEPTO: '#0F766E',
   SALIDAS: '#F97316',
   SUPER: '#16A34A',
+  VIAJES: '#0284C7',
 };
 
 const getMonthKey = (date: Date) =>

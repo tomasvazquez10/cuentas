@@ -29,7 +29,7 @@ import { authService } from '@services/authService';
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
   ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
-  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER'],
+  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER', 'VIAJES'],
   AHORRO: ['DOLAR'],
   INVERSION: ['CEDEARS'],
 };
