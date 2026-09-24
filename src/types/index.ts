@@ -1,5 +1,5 @@
 export type TipoMovimiento = 'GASTO' | 'ENTRADA' | 'AHORRO'| 'INVERSION';
-export type SubtipoMovimiento = 'FIJO' | 'BOLUDES' | 'DOLAR' | 'CEDEARS' | 'DEPTO' | 'SALIDAS' | 'SUPER' | 'VIAJES' | 'OTRO' | 'SUELDO' | 'BONO';
+export type SubtipoMovimiento = 'FIJO' | 'BOLUDES' | 'DOLAR' | 'CEDEARS' | 'DEPTO' | 'SALIDAS' | 'SUPER' | 'VIAJES' | 'OTRO' | 'SUELDO' | 'BONO'| 'SC';
 export type MetodoMovimiento = 'EFECTIVO' | 'VISA' | 'AMEX' | 'MERCADOPAGO';
 
 export interface Movimiento {

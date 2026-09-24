@@ -29,7 +29,7 @@ import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from 
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
   ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
-  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER', 'VIAJES'],
+  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER', 'VIAJES','SC'],
   AHORRO: ['DOLAR'],
   INVERSION: ['CEDEARS'],
 };
