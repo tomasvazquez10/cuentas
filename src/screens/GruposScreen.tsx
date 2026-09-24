@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
-import { Button, Input, CustomModal } from '@components/index';
+import { Button, Input, CustomModal, SidebarMenuButton } from '@components/index';
 import { Grupo } from '@models/index';
 import { grupoService } from '@services/grupoService';
 import { gastoCompartidoService } from '@services/gastoCompartidoService';
@@ -96,7 +96,10 @@ export default function GruposScreen({ navigation }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Mis Grupos</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <SidebarMenuButton />
+            <Text style={styles.headerTitle}>Mis Grupos</Text>
+          </View>
           <Text style={styles.headerSubtitle}>Tus círculos de gastos compartidos</Text>
         </View>
 

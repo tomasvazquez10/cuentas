@@ -13,7 +13,7 @@ import { Movimiento, SubtipoMovimiento } from '@models/index';
 import { movimientoService } from '@services/movimientoService';
 import { colors } from '@utils/colors';
 import { formatMoney } from '@utils/formatting';
-import { StatCard } from '@components/index';
+import { SidebarMenuButton, StatCard } from '@components/index';
 
 const SUBTIPOS_GASTO: SubtipoMovimiento[] = [
   'FIJO',
@@ -114,7 +114,10 @@ export default function GastosScreen() {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Gastos</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <SidebarMenuButton />
+            <Text style={styles.headerTitle}>Gastos</Text>
+          </View>
         </View>
 
         <View style={styles.monthSelector}>

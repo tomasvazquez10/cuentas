@@ -12,4 +12,5 @@ export type { DropdownOption } from './DropdownField';
 export { GastoCompartidoCard } from './GastoCompartidoCard';
 export { GrupoCard } from './GrupoCard';
 export { ParticipanteGastoCard } from './ParticipanteGastoCard';
+export { SidebarMenuButton } from './SidebarMenuButton';
 

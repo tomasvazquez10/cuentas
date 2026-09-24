@@ -12,7 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, getMetodoColor } from '@utils/colors';
 import { movimientoService } from '@services/movimientoService';
-import { StatCard } from '@components/index';
+import { SidebarMenuButton, StatCard } from '@components/index';
 import { Movimiento, MetodoMovimiento } from '@models/index';
 
 const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
@@ -78,7 +78,10 @@ export default function HomeScreen({ navigation }: any) {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Resumen financiero</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <SidebarMenuButton />
+            <Text style={styles.headerTitle}>Resumen financiero</Text>
+          </View>
         </View>
 
       <View style={styles.monthSelector}>

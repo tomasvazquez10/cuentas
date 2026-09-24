@@ -12,7 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { calendarioPagoService } from '@services/calendarioPagoService';
 import { formatMoney } from '@utils/formatting';
-import { Button, Input, CustomModal, PagoCard, StatCard, ConfirmDialog } from '@components/index';
+import { Button, Input, CustomModal, PagoCard, SidebarMenuButton, StatCard, ConfirmDialog } from '@components/index';
 import { CalendarioPago } from '@models/index';
 
 const WEEK_DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
@@ -350,7 +350,10 @@ export default function CalendarioScreen({ navigation }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Calendario de pagos</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <SidebarMenuButton />
+            <Text style={styles.headerTitle}>Calendario de pagos</Text>
+          </View>
         </View>
 
         <View style={styles.monthSelector}>

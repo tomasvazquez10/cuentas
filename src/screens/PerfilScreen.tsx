@@ -11,7 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { authService } from '@services/authService';
 import { perfilService } from '@services/perfilService';
-import { Button, Card, ConfirmDialog } from '@components/index';
+import { Button, Card, ConfirmDialog, SidebarMenuButton } from '@components/index';
 import { Perfil } from '@models/index';
 
 export default function PerfilScreen() {
@@ -81,7 +81,10 @@ export default function PerfilScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Perfil</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <SidebarMenuButton />
+          <Text style={styles.headerTitle}>Perfil</Text>
+        </View>
       </View>
 
       {perfil && (

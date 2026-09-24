@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { StatCard } from '@components/index';
+import { SidebarMenuButton, StatCard } from '@components/index';
 import { tarjetaService } from '@services/tarjetaService';
 import { movimientoService } from '@services/movimientoService';
 import { colors, getMetodoColor } from '@utils/colors';
@@ -131,7 +131,10 @@ export default function TarjetasScreen({ navigation }: any) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Tarjetas</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <SidebarMenuButton />
+          <Text style={styles.title}>Tarjetas</Text>
+        </View>
       </View>
 
       <View style={styles.viewSelector}>

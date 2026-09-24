@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -15,6 +15,7 @@ import PerfilScreen from '@screens/PerfilScreen';
 import TarjetasScreen from '@screens/TarjetasScreen';
 import GruposNavigator from '@navigators/GruposNavigator';
 import { createStackNavigator } from '@react-navigation/stack';
+import { SidebarContext } from '@context/SidebarContext';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -30,17 +31,16 @@ const sidebarItems = [
   { name: 'Perfil', label: 'Perfil', icon: '👤' },
 ] as const;
 
-const SidebarContext = createContext({
-  collapsed: false,
-  toggle: () => undefined,
-});
-
 function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <SidebarContext.Provider
-      value={{ collapsed, toggle: () => setCollapsed((current) => !current) }}
+      value={{
+        collapsed,
+        toggle: () => setCollapsed((current) => !current),
+        close: () => setCollapsed(true),
+      }}
     >
       {children}
     </SidebarContext.Provider>
@@ -48,33 +48,14 @@ function SidebarProvider({ children }: { children: React.ReactNode }) {
 }
 
 function SidebarTabBar({ state, navigation }: BottomTabBarProps) {
-  const { collapsed, toggle } = useContext(SidebarContext);
+  const { collapsed, close } = useContext(SidebarContext);
 
   if (collapsed) {
-    return (
-      <Pressable
-        accessibilityLabel="Mostrar navegación"
-        accessibilityRole="button"
-        onPress={toggle}
-        style={styles.floatingMenuButton}
-      >
-        <Text style={styles.floatingMenuIcon}>☰</Text>
-      </Pressable>
-    );
+    return null;
   }
 
   return (
     <View style={styles.sidebar}>
-      <Pressable
-        accessibilityLabel="Ocultar navegación"
-        accessibilityRole="button"
-        onPress={toggle}
-        style={styles.toggleButton}
-      >
-        <Text style={styles.toggleIcon}>‹</Text>
-        <Text style={styles.toggleLabel}>Ocultar menú</Text>
-      </Pressable>
-
       <View style={styles.menu}>
         {sidebarItems.map((item, index) => {
           const focused = state.index === index;
@@ -84,7 +65,10 @@ function SidebarTabBar({ state, navigation }: BottomTabBarProps) {
               key={item.name}
               accessibilityRole="button"
               accessibilityState={{ selected: focused }}
-              onPress={() => navigation.navigate(item.name)}
+              onPress={() => {
+                navigation.navigate(item.name);
+                close();
+              }}
               style={[styles.menuItem, focused && styles.menuItemActive]}
             >
               <Text style={styles.menuIcon}>{item.icon}</Text>
@@ -213,41 +197,7 @@ const styles = StyleSheet.create({
     width: SIDEBAR_WIDTH,
     zIndex: 10,
   },
-  floatingMenuButton: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    elevation: 12,
-    height: 44,
-    justifyContent: 'center',
-    left: 14,
-    position: 'absolute',
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    top: 14,
-    width: 44,
-    zIndex: 20,
-  },
-  floatingMenuIcon: {
-    color: colors.primary,
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 26,
-  },
-  toggleButton: {
-    alignItems: 'center',
-    borderBottomColor: colors.gray[100],
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    minHeight: 48,
-    paddingHorizontal: 10,
-  },
-  toggleIcon: { color: colors.primary, fontSize: 28 },
-  toggleLabel: { color: colors.gray[600], fontSize: 13, fontWeight: '700' },
-  menu: { gap: 8, paddingTop: 24 },
+  menu: { gap: 8, paddingTop: 48 },
   menuItem: {
     alignItems: 'center',
     borderRadius: 12,

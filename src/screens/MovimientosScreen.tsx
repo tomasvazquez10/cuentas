@@ -21,6 +21,7 @@ import {
   DatePickerField,
   DropdownField,
   DropdownOption,
+  SidebarMenuButton,
 } from '@components/index';
 import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
 
@@ -495,7 +496,10 @@ export default function MovimientosScreen({ navigation, route }: any) {
         }
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Movimientos</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <SidebarMenuButton />
+            <Text style={styles.headerTitle}>Movimientos</Text>
+          </View>
         </View>
 
         <View style={styles.monthSelector}>
