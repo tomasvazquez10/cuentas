@@ -26,6 +26,17 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
   const isIngreso = movimiento.tipo === 'ENTRADA';
   const color = isIngreso ? colors.ingresos : colors.egresos;
   const metodoColor = getMetodoColor(movimiento.metodo);
+  const icon = movimiento.tipo === 'ENTRADA'
+    ? '↗'
+    : movimiento.subtipo === 'SUPER'
+      ? '🛒'
+      : movimiento.subtipo === 'VIAJES'
+        ? '✈'
+        : movimiento.subtipo === 'SALIDAS'
+          ? '★'
+          : movimiento.subtipo === 'DEPTO'
+            ? '⌂'
+            : '•';
   const sign = isIngreso ? '+' : '-';
   const amountPrefix = hideSign ? '' : `${sign} `;
   const mostrarCuotas =
@@ -40,17 +51,19 @@ export const MovimientoCard: React.FC<MovimientoCardProps> = ({
       onLongPress={onDelete}
       delayLongPress={500}
     >
-      <View style={[styles.icon, { backgroundColor: metodoColor + '20' }]}>
-        <Text style={[styles.iconText, { color }]}>💰</Text>
+      <View style={[styles.icon, { backgroundColor: color + '18' }]}>
+        <Text style={[styles.iconText, { color }]}>{icon}</Text>
       </View>
       <View style={styles.content}>
         <Text style={styles.concepto}>{movimiento.concepto}</Text>
-        <Text style={styles.fecha}>{formatDate(movimiento.fecha)}</Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.fecha}>{formatDate(movimiento.fecha)}</Text>
+          <View style={[styles.metodoPill, { backgroundColor: metodoColor + '18' }]}>
+            <Text style={[styles.metodoText, { color: metodoColor }]}>{movimiento.metodo}</Text>
+          </View>
+        </View>
         <Text style={styles.subtipo}>
-          {movimiento.subtipo}
-          {mostrarCuotas
-            ? `  |  Cuota ${movimiento.cuota_actual}/${movimiento.total_cuotas}`
-            : ''}
+          {movimiento.subtipo}{mostrarCuotas ? `  |  Cuota ${movimiento.cuota_actual}/${movimiento.total_cuotas}` : ''}
         </Text>
       </View>
       <View style={styles.amount}>
@@ -66,8 +79,8 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 10,
     alignItems: 'center',
     elevation: 2,
@@ -77,40 +90,43 @@ const styles = StyleSheet.create({
     shadowRadius: 9,
   },
   icon: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   iconText: {
-    fontSize: 18,
+    fontSize: 20,
   },
   content: {
     flex: 1,
   },
   concepto: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '800',
     color: colors.dark,
     marginBottom: 4,
   },
   fecha: {
     fontSize: 12,
     color: colors.gray[500],
-    marginBottom: 2,
+    marginRight: 6,
   },
   subtipo: {
     fontSize: 11,
     color: colors.gray[400],
     textTransform: 'capitalize',
   },
+  metaRow: { alignItems: 'center', flexDirection: 'row', marginBottom: 2 },
+  metodoPill: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  metodoText: { fontSize: 9, fontWeight: '800' },
   amount: {
     alignItems: 'flex-end',
   },
   monto: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
   },
 });

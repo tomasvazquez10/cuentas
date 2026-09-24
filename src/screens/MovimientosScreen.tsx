@@ -6,10 +6,12 @@ import {
   ScrollView,
   RefreshControl,
   Alert,
+  TextInput,
   TouchableOpacity,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors, getMetodoColor } from '@utils/colors';
+import { formatMoney } from '@utils/formatting';
 import { movimientoService } from '@services/movimientoService';
 import {
   Button,
@@ -42,7 +44,6 @@ const CUOTAS_OPTIONS: DropdownOption<string>[] = [
     return { label: value, value };
   }),
 ];
-type FiltroMetodo = MetodoMovimiento;
 type MovimientoModalMode = 'create' | 'detail' | 'edit';
 
 const getCuotasData = (cuotaActual: string, totalCuotas: string) => {
@@ -97,7 +98,13 @@ export default function MovimientosScreen({ navigation, route }: any) {
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
-  const [filtroMetodo, setFiltroMetodo] = useState<FiltroMetodo>('EFECTIVO');
+  const [filtrosMetodo, setFiltrosMetodo] = useState<MetodoMovimiento[]>(METODOS);
+  const [filtrosTipo, setFiltrosTipo] = useState<TipoMovimiento[]>(TIPOS_MOVIMIENTO);
+  const [filtrosSubtipoGasto, setFiltrosSubtipoGasto] = useState<SubtipoMovimiento[]>(
+    SUBTIPOS_POR_TIPO.GASTO
+  );
+  const [busqueda, setBusqueda] = useState('');
+  const [filtrosVisibles, setFiltrosVisibles] = useState(false);
 
   const loadMovimientos = async () => {
     try {
@@ -149,7 +156,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
   useEffect(() => {
     const metodoSeleccionado = route?.params?.filtroMetodo as MetodoMovimiento | undefined;
     if (metodoSeleccionado && METODOS.includes(metodoSeleccionado)) {
-      setFiltroMetodo(metodoSeleccionado);
+      setFiltrosMetodo([metodoSeleccionado]);
       navigation.setParams({ filtroMetodo: undefined });
     }
   }, [navigation, route?.params?.filtroMetodo]);
@@ -260,20 +267,75 @@ export default function MovimientosScreen({ navigation, route }: any) {
   const movimientosDelMes = movimientos.filter((movimiento) =>
     movimiento.fecha.slice(0, 7) === claveMesSeleccionado
   );
-  const movimientosFiltrados = movimientosDelMes.filter(
-    (movimiento) => movimiento.metodo === filtroMetodo
-  );
+  const movimientosFiltrados = movimientosDelMes.filter((movimiento) => {
+    const coincideMetodo = filtrosMetodo.includes(movimiento.metodo as MetodoMovimiento);
+    const coincideTipo = filtrosTipo.includes(movimiento.tipo as TipoMovimiento);
+    const coincideSubtipo =
+      movimiento.tipo !== 'GASTO' ||
+      filtrosSubtipoGasto.includes(movimiento.subtipo as SubtipoMovimiento);
+
+    const textoBusqueda = busqueda.trim().toLowerCase();
+    const coincideBusqueda = !textoBusqueda || [
+      movimiento.concepto,
+      movimiento.nota,
+      movimiento.subtipo,
+      movimiento.metodo,
+    ].some((valor) => String(valor ?? '').toLowerCase().includes(textoBusqueda));
+
+    return coincideMetodo && coincideTipo && coincideSubtipo && coincideBusqueda;
+  });
   const balanceFiltrado = movimientosFiltrados.reduce(
     (balance, movimiento) =>
       balance + (movimiento.tipo === 'ENTRADA' ? movimiento.monto : -movimiento.monto),
     0
   );
-  const filtroEsTarjeta = METODOS_TARJETA.includes(filtroMetodo);
+  const filtroEsTarjeta = filtrosMetodo.length > 0 && filtrosMetodo.every((metodo) => METODOS_TARJETA.includes(metodo));
   const balanceMostrado = filtroEsTarjeta ? Math.abs(balanceFiltrado) : balanceFiltrado;
   const tituloMes = mesSeleccionado.toLocaleDateString('es-AR', {
     month: 'long',
     year: 'numeric',
   });
+  const alternarMetodo = (metodoSeleccionado: MetodoMovimiento) => {
+    setFiltrosMetodo((actuales) =>
+      actuales.includes(metodoSeleccionado)
+        ? actuales.filter((metodo) => metodo !== metodoSeleccionado)
+        : [...actuales, metodoSeleccionado]
+    );
+  };
+  const alternarTipo = (tipoSeleccionado: TipoMovimiento) => {
+    setFiltrosTipo((actuales) =>
+      actuales.includes(tipoSeleccionado)
+        ? actuales.filter((tipo) => tipo !== tipoSeleccionado)
+        : [...actuales, tipoSeleccionado]
+    );
+  };
+  const alternarSubtipoGasto = (subtipoSeleccionado: SubtipoMovimiento) => {
+    setFiltrosSubtipoGasto((actuales) =>
+      actuales.includes(subtipoSeleccionado)
+        ? actuales.filter((subtipo) => subtipo !== subtipoSeleccionado)
+        : [...actuales, subtipoSeleccionado]
+    );
+  };
+  const filtrosActivos = filtrosMetodo.length + filtrosTipo.length;
+  const filtrosCuenta = [
+    filtrosMetodo.length < METODOS.length,
+    filtrosTipo.length < TIPOS_MOVIMIENTO.length,
+    filtrosTipo.includes('GASTO') && filtrosSubtipoGasto.length < SUBTIPOS_POR_TIPO.GASTO.length,
+    busqueda.trim().length > 0,
+  ].filter(Boolean).length;
+  const balanceLabel = filtrosCuenta === 0 ? 'Balance del mes' : 'Balance filtrado';
+  const totalEntradas = movimientosFiltrados
+    .filter((movimiento) => movimiento.tipo === 'ENTRADA')
+    .reduce((total, movimiento) => total + movimiento.monto, 0);
+  const totalGastosFiltrados = movimientosFiltrados
+    .filter((movimiento) => movimiento.tipo !== 'ENTRADA')
+    .reduce((total, movimiento) => total + movimiento.monto, 0);
+  const limpiarFiltros = () => {
+    setBusqueda('');
+    setFiltrosMetodo(METODOS);
+    setFiltrosTipo(TIPOS_MOVIMIENTO);
+    setFiltrosSubtipoGasto(SUBTIPOS_POR_TIPO.GASTO);
+  };
 
   const crearCuotasSiguientes = async (
     datosBase: any,
@@ -502,63 +564,66 @@ export default function MovimientosScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        <View style={styles.monthSelector}>
-          <TouchableOpacity
-            accessibilityLabel="Mes anterior"
-            onPress={() => cambiarMes(-1)}
-            style={styles.monthButton}
-          >
-            <Text style={styles.monthButtonText}>‹</Text>
-          </TouchableOpacity>
-          <View>
-            <Text style={styles.monthLabel}>MES SELECCIONADO</Text>
-            <Text style={styles.monthTitle}>{tituloMes}</Text>
+        <View style={styles.filtersPanel}>
+          <View style={styles.monthSelector}>
+            <TouchableOpacity accessibilityLabel="Mes anterior" onPress={() => cambiarMes(-1)} style={styles.monthButton}>
+              <Text style={styles.monthButtonText}>‹</Text>
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.monthLabel}>MES SELECCIONADO</Text>
+              <Text style={styles.monthTitle}>{tituloMes}</Text>
+            </View>
+            <TouchableOpacity accessibilityLabel="Mes siguiente" onPress={() => cambiarMes(1)} style={styles.monthButton}>
+              <Text style={styles.monthButtonText}>›</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            accessibilityLabel="Mes siguiente"
-            onPress={() => cambiarMes(1)}
-            style={styles.monthButton}
-          >
-            <Text style={styles.monthButtonText}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.filtersContainer}>
-          <Text style={styles.filterLabel}>METODO DE PAGO</Text>
-          <View style={styles.filterOptions}>
+          <View style={styles.searchRow}>
+            <View style={styles.searchBox}>
+              <Text style={styles.searchIcon}>⌕</Text>
+              <TextInput
+                accessibilityLabel="Buscar movimientos"
+                onChangeText={setBusqueda}
+                placeholder="Buscar movimiento"
+                placeholderTextColor={colors.gray[400]}
+                style={styles.searchInput}
+                value={busqueda}
+              />
+            </View>
+            <TouchableOpacity onPress={() => setFiltrosVisibles(true)} style={styles.filtersButton}>
+              <Text style={styles.filtersButtonText}>Filtros{filtrosCuenta > 0 ? ` (${filtrosCuenta})` : ''}</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickFilters}>
             {METODOS.map((opcion) => (
               <TouchableOpacity
                 key={opcion}
-                onPress={() => setFiltroMetodo(opcion)}
-                style={[
-                  styles.filterOption,
-                  filtroMetodo === opcion && styles.filterOptionSelected,
-                  filtroMetodo === opcion && {
-                    backgroundColor: getMetodoColor(opcion),
-                  },
-                ]}
+                onPress={() => alternarMetodo(opcion)}
+                style={[styles.quickFilter, filtrosMetodo.includes(opcion) && styles.quickFilterSelected]}
               >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    filtroMetodo === opcion && styles.filterOptionTextSelected,
-                    filtroMetodo === opcion && opcion === 'MERCADOPAGO' && styles.filterOptionTextDark,
-                  ]}
-                >
-                  {opcion}
-                </Text>
+                <Text style={[styles.quickFilterText, filtrosMetodo.includes(opcion) && styles.quickFilterTextSelected]}>{opcion}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+            {filtrosCuenta > 0 && (
+              <TouchableOpacity onPress={limpiarFiltros} style={styles.clearQuickFilter}>
+                <Text style={styles.clearQuickFilterText}>Limpiar</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
         </View>
 
         <View style={styles.balanceContainer}>
           <StatCard
-            label={`Balance ${filtroMetodo}`}
+            label={balanceLabel}
             value={balanceMostrado}
             type={filtroEsTarjeta ? 'egreso' : 'neutral'}
-            color={filtroEsTarjeta ? getMetodoColor(filtroMetodo) : undefined}
+            color={filtrosMetodo.length === 1 && filtroEsTarjeta ? getMetodoColor(filtrosMetodo[0]) : undefined}
           />
+          {filtrosCuenta > 0 && (
+            <View style={styles.balanceDetails}>
+              <Text style={styles.balanceDetailPositive}>Entradas {formatMoney(totalEntradas)}</Text>
+              <Text style={styles.balanceDetailNegative}>Gastos {formatMoney(totalGastosFiltrados)}</Text>
+            </View>
+          )}
         </View>
 
         {movimientosFiltrados.length === 0 ? (
@@ -759,6 +824,60 @@ export default function MovimientosScreen({ navigation, route }: any) {
           )}
         </View>
       </CustomModal>
+      <CustomModal
+        visible={filtrosVisibles}
+        title="Filtrar movimientos"
+        onClose={() => setFiltrosVisibles(false)}
+        footer={
+          <View style={styles.filterSheetFooter}>
+            <TouchableOpacity onPress={limpiarFiltros} style={styles.sheetClearButton}>
+              <Text style={styles.sheetClearText}>Limpiar todo</Text>
+            </TouchableOpacity>
+            <Button title="Aplicar filtros" onPress={() => setFiltrosVisibles(false)} variant="primary" />
+          </View>
+        }
+      >
+        <Text style={styles.sheetSectionTitle}>Métodos de pago</Text>
+        <View style={styles.sheetOptions}>
+          {METODOS.map((opcion) => (
+            <TouchableOpacity
+              key={opcion}
+              onPress={() => alternarMetodo(opcion)}
+              style={[styles.sheetOption, filtrosMetodo.includes(opcion) && { backgroundColor: getMetodoColor(opcion) }]}
+            >
+              <Text style={[styles.sheetOptionText, filtrosMetodo.includes(opcion) && styles.sheetOptionTextSelected]}>{opcion}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={styles.sheetSectionTitle}>Tipo de movimiento</Text>
+        <View style={styles.sheetOptions}>
+          {TIPOS_MOVIMIENTO.map((opcion) => (
+            <TouchableOpacity
+              key={opcion}
+              onPress={() => alternarTipo(opcion)}
+              style={[styles.sheetOption, filtrosTipo.includes(opcion) && styles.sheetOptionSelected]}
+            >
+              <Text style={[styles.sheetOptionText, filtrosTipo.includes(opcion) && styles.sheetOptionTextSelected]}>{opcion}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {filtrosTipo.includes('GASTO') && (
+          <>
+            <Text style={styles.sheetSectionTitle}>Tipo de gasto</Text>
+            <View style={styles.sheetOptions}>
+              {SUBTIPOS_POR_TIPO.GASTO.map((opcion) => (
+                <TouchableOpacity
+                  key={opcion}
+                  onPress={() => alternarSubtipoGasto(opcion)}
+                  style={[styles.sheetOption, filtrosSubtipoGasto.includes(opcion) && styles.sheetOptionSelected]}
+                >
+                  <Text style={[styles.sheetOptionText, filtrosSubtipoGasto.includes(opcion) && styles.sheetOptionTextSelected]}>{opcion}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
+      </CustomModal>
       <ConfirmDialog
         visible={deleteDialogVisible}
         title="Eliminar movimiento?"
@@ -814,12 +933,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 20,
   },
+  filtersPanel: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    elevation: 2,
+    marginHorizontal: 20,
+    marginTop: 6,
+    padding: 6,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+  },
+  searchRow: { alignItems: 'center', flexDirection: 'row', gap: 8, marginTop: 6 },
+  searchBox: {
+    alignItems: 'center',
+    backgroundColor: colors.gray[50],
+    borderColor: colors.gray[200],
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: 'row',
+    height: 38,
+    paddingHorizontal: 10,
+  },
+  searchIcon: { color: colors.gray[500], fontSize: 22, marginRight: 6 },
+  searchInput: { color: colors.dark, flex: 1, fontSize: 13, paddingVertical: 0 },
+  filtersButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    height: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  filtersButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  quickFilters: { gap: 6, paddingBottom: 2, paddingTop: 8 },
+  quickFilter: { backgroundColor: colors.gray[100], borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
+  quickFilterSelected: { backgroundColor: colors.primary },
+  quickFilterText: { color: colors.gray[600], fontSize: 10, fontWeight: '700' },
+  quickFilterTextSelected: { color: '#fff' },
+  clearQuickFilter: { borderColor: colors.danger, borderRadius: 8, borderWidth: 1, paddingHorizontal: 9, paddingVertical: 5 },
+  clearQuickFilterText: { color: colors.danger, fontSize: 10, fontWeight: '800' },
   monthSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 20,
-    marginTop: 8,
+    marginHorizontal: 0,
+    marginTop: 0,
     padding: 6,
     backgroundColor: '#fff',
     borderRadius: 14,
@@ -830,33 +991,34 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   filtersContainer: {
-    marginHorizontal: 20,
-    marginTop: 18,
+    marginHorizontal: 0,
+    marginTop: 0,
   },
   filterLabel: {
     color: colors.gray[500],
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
-    marginBottom: 9,
+    marginBottom: 4,
+    marginTop: 6,
   },
   filterOptions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
+    paddingBottom: 2,
   },
   filterOption: {
     backgroundColor: colors.gray[100],
-    borderRadius: 12,
-    paddingHorizontal: 13,
-    paddingVertical: 9,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   filterOptionSelected: {
     backgroundColor: colors.primary,
   },
   filterOptionText: {
     color: colors.gray[600],
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   filterOptionTextSelected: {
@@ -869,6 +1031,18 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginHorizontal: 20,
   },
+  balanceDetails: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 4, marginTop: -4 },
+  balanceDetailPositive: { color: colors.success, fontSize: 11, fontWeight: '700' },
+  balanceDetailNegative: { color: colors.danger, fontSize: 11, fontWeight: '700' },
+  filterSheetFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  sheetClearButton: { paddingVertical: 12 },
+  sheetClearText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
+  sheetSectionTitle: { color: colors.dark, fontSize: 13, fontWeight: '800', marginBottom: 8, marginTop: 8 },
+  sheetOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  sheetOption: { backgroundColor: colors.gray[100], borderRadius: 10, paddingHorizontal: 11, paddingVertical: 8 },
+  sheetOptionSelected: { backgroundColor: colors.primary },
+  sheetOptionText: { color: colors.gray[600], fontSize: 11, fontWeight: '700' },
+  sheetOptionTextSelected: { color: '#fff' },
   monthButton: {
     width: 28,
     height: 28,
