@@ -279,7 +279,7 @@ export default function TarjetasScreen({ navigation }: any) {
                     <Text
                       key={total.tarjeta}
                       adjustsFontSizeToFit
-                      minimumFontScale={0.75}
+                      minimumFontScale={0.85}
                       numberOfLines={1}
                       style={[
                         styles.tableAmountCell,
@@ -426,14 +426,14 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.gray[100],
     borderBottomWidth: 1,
     flexDirection: 'row',
-    minHeight: 38,
-    paddingHorizontal: 10,
+    minHeight: 48,
+    paddingHorizontal: 8,
   },
   tableRowAlternate: { backgroundColor: colors.gray[50] },
   tableHeaderRow: { backgroundColor: '#EEECFF' },
   tableHeaderCell: {
     color: colors.primary,
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
@@ -448,13 +448,13 @@ const styles = StyleSheet.create({
   },
   tableMonthCell: {
     color: colors.gray[700],
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '800',
     textTransform: 'capitalize',
   },
   tableAmountCell: {
     color: colors.dark,
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '800',
   },
 });
