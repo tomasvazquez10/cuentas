@@ -124,6 +124,33 @@ export default function TarjetasScreen({ navigation }: any) {
     month: 'long',
     year: 'numeric',
   });
+  const periodSelector = vistaSeleccionada === 'mes' ? (
+    <View style={styles.periodSelector}>
+      <TouchableOpacity onPress={() => cambiarMes(-1)} style={styles.periodButton}>
+        <Text style={styles.periodButtonText}>{'<'}</Text>
+      </TouchableOpacity>
+      <View>
+        <Text style={styles.periodLabel}>MES SELECCIONADO</Text>
+        <Text style={styles.periodTitle}>{tituloMes}</Text>
+      </View>
+      <TouchableOpacity onPress={() => cambiarMes(1)} style={styles.periodButton}>
+        <Text style={styles.periodButtonText}>{'>'}</Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <View style={styles.periodSelector}>
+      <TouchableOpacity onPress={() => cambiarAnio(-1)} style={styles.periodButton}>
+        <Text style={styles.periodButtonText}>{'<'}</Text>
+      </TouchableOpacity>
+      <View>
+        <Text style={styles.periodLabel}>AÑO SELECCIONADO</Text>
+        <Text style={styles.periodTitle}>{anioSeleccionado}</Text>
+      </View>
+      <TouchableOpacity onPress={() => cambiarAnio(1)} style={styles.periodButton}>
+        <Text style={styles.periodButtonText}>{'>'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   return (
     <ScrollView
@@ -137,56 +164,30 @@ export default function TarjetasScreen({ navigation }: any) {
         </View>
       </View>
 
-      <View style={styles.viewSelector}>
-        <TouchableOpacity
-          onPress={() => setVistaSeleccionada('mes')}
-          style={[
-            styles.viewOption,
-            vistaSeleccionada === 'mes' && styles.viewOptionSelected,
-          ]}
-        >
-          <Text
-            style={[
-              styles.viewOptionText,
-              vistaSeleccionada === 'mes' && styles.viewOptionTextSelected,
-            ]}
+      <View style={styles.periodControls}>
+        <View style={styles.viewSelector}>
+          <TouchableOpacity
+            onPress={() => setVistaSeleccionada('mes')}
+            style={[styles.viewOption, vistaSeleccionada === 'mes' && styles.viewOptionSelected]}
           >
-            Mes
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setVistaSeleccionada('anio')}
-          style={[
-            styles.viewOption,
-            vistaSeleccionada === 'anio' && styles.viewOptionSelected,
-          ]}
-        >
-          <Text
-            style={[
-              styles.viewOptionText,
-              vistaSeleccionada === 'anio' && styles.viewOptionTextSelected,
-            ]}
+            <Text style={[styles.viewOptionText, vistaSeleccionada === 'mes' && styles.viewOptionTextSelected]}>
+              Mes
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setVistaSeleccionada('anio')}
+            style={[styles.viewOption, vistaSeleccionada === 'anio' && styles.viewOptionSelected]}
           >
-            Totales año
-          </Text>
-        </TouchableOpacity>
+            <Text style={[styles.viewOptionText, vistaSeleccionada === 'anio' && styles.viewOptionTextSelected]}>
+              Totales año
+            </Text>
+          </TouchableOpacity>
+        </View>
+        {periodSelector}
       </View>
 
       {vistaSeleccionada === 'mes' ? (
         <>
-          <View style={styles.periodSelector}>
-            <TouchableOpacity onPress={() => cambiarMes(-1)} style={styles.periodButton}>
-              <Text style={styles.periodButtonText}>{'<'}</Text>
-            </TouchableOpacity>
-            <View>
-              <Text style={styles.periodLabel}>MES SELECCIONADO</Text>
-              <Text style={styles.periodTitle}>{tituloMes}</Text>
-            </View>
-            <TouchableOpacity onPress={() => cambiarMes(1)} style={styles.periodButton}>
-              <Text style={styles.periodButtonText}>{'>'}</Text>
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.statsContainer}>
             <Text style={styles.sectionTitle}>Balance total</Text>
             <StatCard label="Todas las tarjetas" value={totalMensualTarjetas} type="neutral" />
@@ -247,47 +248,51 @@ export default function TarjetasScreen({ navigation }: any) {
         </>
       ) : (
         <>
-          <View style={styles.periodSelector}>
-            <TouchableOpacity onPress={() => cambiarAnio(-1)} style={styles.periodButton}>
-              <Text style={styles.periodButtonText}>{'<'}</Text>
-            </TouchableOpacity>
-            <View>
-              <Text style={styles.periodLabel}>AÑO SELECCIONADO</Text>
-              <Text style={styles.periodTitle}>{anioSeleccionado}</Text>
-            </View>
-            <TouchableOpacity onPress={() => cambiarAnio(1)} style={styles.periodButton}>
-              <Text style={styles.periodButtonText}>{'>'}</Text>
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Totales {anioSeleccionado}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.yearTable}>
-                <View style={[styles.tableRow, styles.tableHeaderRow]}>
-                  <Text style={[styles.tableHeaderCell, styles.monthColumn]}>Mes</Text>
-                  {TARJETAS.map((tarjeta) => (
-                    <Text key={tarjeta} style={[styles.tableHeaderCell, styles.amountColumn]}>
-                      {tarjeta}
+            <View style={styles.yearTable}>
+              <View style={[styles.tableRow, styles.tableHeaderRow]}>
+                <Text style={[styles.tableHeaderCell, styles.monthColumn]}>Mes</Text>
+                {TARJETAS.map((tarjeta) => (
+                  <Text
+                    key={tarjeta}
+                    style={[
+                      styles.tableHeaderCell,
+                      styles.amountColumn,
+                      { color: getMetodoColor(tarjeta) },
+                    ]}
+                  >
+                    {tarjeta}
+                  </Text>
+                ))}
+              </View>
+
+              {totalesPorMes.map((item, index) => (
+                <View
+                  key={item.mes}
+                  style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlternate]}
+                >
+                  <Text numberOfLines={1} style={[styles.tableMonthCell, styles.monthColumn]}>
+                    {item.mes}
+                  </Text>
+                  {item.totales.map((total) => (
+                    <Text
+                      key={total.tarjeta}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.75}
+                      numberOfLines={1}
+                      style={[
+                        styles.tableAmountCell,
+                        styles.amountColumn,
+                        { color: getMetodoColor(total.tarjeta) },
+                      ]}
+                    >
+                      {formatMoney(total.total)}
                     </Text>
                   ))}
                 </View>
-
-                {totalesPorMes.map((item) => (
-                  <View key={item.mes} style={styles.tableRow}>
-                    <Text style={[styles.tableMonthCell, styles.monthColumn]}>{item.mes}</Text>
-                    {item.totales.map((total) => (
-                      <Text
-                        key={total.tarjeta}
-                        style={[styles.tableAmountCell, styles.amountColumn]}
-                      >
-                        {formatMoney(total.total)}
-                      </Text>
-                    ))}
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
+              ))}
+            </View>
           </View>
         </>
       )}
@@ -306,67 +311,61 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
   },
   title: { color: '#fff', fontSize: 19, fontWeight: '800' },
-  viewSelector: {
+  periodControls: {
     backgroundColor: '#fff',
-    borderRadius: 16,
+    borderRadius: 14,
     elevation: 2,
-    flexDirection: 'row',
-    gap: 8,
     marginHorizontal: 20,
-    marginTop: 12,
+    marginTop: 8,
     padding: 6,
     shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.05,
-    shadowRadius: 9,
+    shadowRadius: 6,
+  },
+  viewSelector: {
+    flexDirection: 'row',
+    gap: 8,
   },
   viewOption: {
     alignItems: 'center',
     borderRadius: 12,
     flex: 1,
     justifyContent: 'center',
-    minHeight: 40,
-    paddingHorizontal: 10,
+    minHeight: 32,
+    paddingHorizontal: 8,
   },
   viewOptionSelected: { backgroundColor: colors.primary },
-  viewOptionText: { color: colors.gray[600], fontSize: 13, fontWeight: '800' },
+  viewOptionText: { color: colors.gray[600], fontSize: 12, fontWeight: '800' },
   viewOptionTextSelected: { color: '#fff' },
   periodSelector: {
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    elevation: 2,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 20,
-    marginTop: 12,
-    padding: 10,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.05,
-    shadowRadius: 9,
+    marginTop: 4,
+    padding: 2,
   },
   periodButton: {
     alignItems: 'center',
     backgroundColor: colors.gray[100],
-    borderRadius: 10,
-    height: 32,
+    borderRadius: 8,
+    height: 28,
     justifyContent: 'center',
-    width: 32,
+    width: 28,
   },
-  periodButtonText: { color: colors.primary, fontSize: 22, fontWeight: '700', lineHeight: 28 },
+  periodButtonText: { color: colors.primary, fontSize: 20, fontWeight: '700', lineHeight: 25 },
   periodLabel: {
     color: colors.gray[500],
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.8,
     textAlign: 'center',
   },
   periodTitle: {
     color: colors.dark,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
-    marginTop: 2,
+    marginTop: 1,
     textAlign: 'center',
     textTransform: 'capitalize',
   },
@@ -412,9 +411,10 @@ const styles = StyleSheet.create({
   noDates: { color: colors.gray[500], fontSize: 13, marginTop: 14 },
   yearTable: {
     backgroundColor: '#fff',
+    borderColor: colors.gray[200],
     borderRadius: 14,
+    borderWidth: 1,
     elevation: 1,
-    minWidth: 520,
     overflow: 'hidden',
     shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
@@ -426,32 +426,35 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.gray[100],
     borderBottomWidth: 1,
     flexDirection: 'row',
-    minHeight: 42,
+    minHeight: 38,
     paddingHorizontal: 10,
   },
-  tableHeaderRow: { backgroundColor: colors.gray[50] },
+  tableRowAlternate: { backgroundColor: colors.gray[50] },
+  tableHeaderRow: { backgroundColor: '#EEECFF' },
   tableHeaderCell: {
-    color: colors.gray[500],
-    fontSize: 10,
+    color: colors.primary,
+    fontSize: 9,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   monthColumn: {
-    width: 92,
+    flex: 1.15,
+    minWidth: 0,
   },
   amountColumn: {
+    flex: 1,
+    minWidth: 0,
     textAlign: 'right',
-    width: 136,
   },
   tableMonthCell: {
-    color: colors.dark,
-    fontSize: 12,
+    color: colors.gray[700],
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'capitalize',
   },
   tableAmountCell: {
     color: colors.dark,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
   },
 });
