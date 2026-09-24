@@ -32,7 +32,7 @@ const sidebarItems = [
 ] as const;
 
 function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   return (
     <SidebarContext.Provider
@@ -84,13 +84,7 @@ function SidebarTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 function SidebarScreen({ children }: { children: React.ReactNode }) {
-  const { collapsed } = useContext(SidebarContext);
-
-  return (
-    <View style={[styles.screen, { marginLeft: collapsed ? 0 : SIDEBAR_WIDTH }]}>
-      {children}
-    </View>
-  );
+  return <View style={styles.screen}>{children}</View>;
 }
 
 function withSidebarSpace(Component: React.ComponentType<any>) {

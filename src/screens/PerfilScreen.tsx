@@ -186,13 +186,13 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 14,
-    paddingTop: 52,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 10,
+    paddingTop: 24,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: '800',
     color: '#fff',
   },

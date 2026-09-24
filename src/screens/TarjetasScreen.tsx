@@ -300,12 +300,12 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingTop: 42,
-    paddingBottom: 14,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingTop: 24,
+    paddingBottom: 10,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
-  title: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  title: { color: '#fff', fontSize: 19, fontWeight: '800' },
   viewSelector: {
     backgroundColor: '#fff',
     borderRadius: 16,

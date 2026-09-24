@@ -698,12 +698,12 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: colors.primary,
     paddingHorizontal: 20,
-    paddingBottom: 14,
-    paddingTop: 42,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 10,
+    paddingTop: 24,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
+  headerTitle: { fontSize: 19, fontWeight: '800', color: '#fff' },
   monthSelector: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: 20,
     marginTop: 12, padding: 10, backgroundColor: '#fff', borderRadius: 16, elevation: 2,
