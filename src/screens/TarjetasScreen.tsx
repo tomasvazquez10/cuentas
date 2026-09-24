@@ -25,6 +25,7 @@ export default function TarjetasScreen({ navigation }: any) {
   const [datosTarjeta, setDatosTarjeta] = useState<DatoTarjeta[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [vistaSeleccionada, setVistaSeleccionada] = useState<VistaTarjetas>('mes');
+  const [tarjetaAnualSeleccionada, setTarjetaAnualSeleccionada] = useState<Tarjeta>('VISA');
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
@@ -124,6 +125,16 @@ export default function TarjetasScreen({ navigation }: any) {
     month: 'long',
     year: 'numeric',
   });
+  const totalesAnualesSeleccionados = totalesPorMes.map((item) => ({
+    mes: item.mes,
+    total:
+      item.totales.find((total) => total.tarjeta === tarjetaAnualSeleccionada)?.total ?? 0,
+  }));
+  const maximoTotalAnual = Math.max(
+    ...totalesAnualesSeleccionados.map((item) => item.total),
+    1
+  );
+  const colorTarjetaAnual = getMetodoColor(tarjetaAnualSeleccionada);
   const periodSelector = vistaSeleccionada === 'mes' ? (
     <View style={styles.periodSelector}>
       <TouchableOpacity onPress={() => cambiarMes(-1)} style={styles.periodButton}>
@@ -250,46 +261,75 @@ export default function TarjetasScreen({ navigation }: any) {
         <>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Totales {anioSeleccionado}</Text>
-            <View style={styles.yearTable}>
-              <View style={[styles.tableRow, styles.tableHeaderRow]}>
-                <Text style={[styles.tableHeaderCell, styles.monthColumn]}>Mes</Text>
-                {TARJETAS.map((tarjeta) => (
-                  <Text
+            <View style={styles.annualCardSelector}>
+              {TARJETAS.map((tarjeta) => {
+                const seleccionado = tarjeta === tarjetaAnualSeleccionada;
+                const color = getMetodoColor(tarjeta);
+
+                return (
+                  <TouchableOpacity
                     key={tarjeta}
+                    onPress={() => setTarjetaAnualSeleccionada(tarjeta)}
                     style={[
-                      styles.tableHeaderCell,
-                      styles.amountColumn,
-                      { color: getMetodoColor(tarjeta) },
+                      styles.annualCardOption,
+                      seleccionado && { backgroundColor: color, borderColor: color },
                     ]}
                   >
-                    {tarjeta}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.annualCardOptionText,
+                        seleccionado && styles.annualCardOptionTextSelected,
+                      ]}
+                    >
+                      {tarjeta}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.annualChartCard}>
+              <View style={styles.annualChartHeader}>
+                <View>
+                  <Text style={styles.annualChartTitle}>{tarjetaAnualSeleccionada}</Text>
+                  <Text style={styles.annualChartSubtitle}>Consumo mensual</Text>
+                </View>
+                <Text style={[styles.annualChartTotal, { color: colorTarjetaAnual }]}> 
+                  {formatMoney(totalesAnualesSeleccionados.reduce((sum, item) => sum + item.total, 0))}
+                </Text>
+              </View>
+
+              <View style={styles.chartArea}>
+                {totalesAnualesSeleccionados.map((item) => (
+                  <View key={item.mes} style={styles.chartColumn}>
+                    <View style={styles.chartBarTrack}>
+                      <View
+                        style={[
+                          styles.chartBar,
+                          {
+                            backgroundColor: colorTarjetaAnual,
+                            height: `${Math.max((item.total / maximoTotalAnual) * 100, item.total ? 8 : 2)}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.chartMonth}>{item.mes.slice(0, 3)}</Text>
+                  </View>
                 ))}
               </View>
 
-              {totalesPorMes.map((item, index) => (
+            </View>
+
+            <View style={styles.annualTotalsList}>
+              {totalesAnualesSeleccionados.map((item, index) => (
                 <View
                   key={item.mes}
-                  style={[styles.tableRow, index % 2 === 1 && styles.tableRowAlternate]}
+                  style={[styles.annualTotalRow, index % 2 === 1 && styles.annualTotalRowAlternate]}
                 >
-                  <Text numberOfLines={1} style={[styles.tableMonthCell, styles.monthColumn]}>
-                    {item.mes}
+                  <Text style={styles.annualTotalMonth}>{item.mes}</Text>
+                  <Text style={[styles.annualTotalValue, { color: colorTarjetaAnual }]}>
+                    {formatMoney(item.total)}
                   </Text>
-                  {item.totales.map((total) => (
-                    <Text
-                      key={total.tarjeta}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.85}
-                      numberOfLines={1}
-                      style={[
-                        styles.tableAmountCell,
-                        styles.amountColumn,
-                        { color: getMetodoColor(total.tarjeta) },
-                      ]}
-                    >
-                      {formatMoney(total.total)}
-                    </Text>
-                  ))}
                 </View>
               ))}
             </View>
@@ -409,52 +449,96 @@ const styles = StyleSheet.create({
   dateLabel: { color: colors.gray[500], fontSize: 10, fontWeight: '800', letterSpacing: 0.7 },
   dateValue: { color: colors.dark, fontSize: 14, fontWeight: '700', marginTop: 4 },
   noDates: { color: colors.gray[500], fontSize: 13, marginTop: 14 },
-  yearTable: {
+  annualCardSelector: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  annualCardOption: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: colors.gray[200],
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 38,
+    paddingHorizontal: 4,
+  },
+  annualCardOptionText: {
+    color: colors.gray[600],
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  annualCardOptionTextSelected: { color: '#fff' },
+  annualChartCard: {
+    backgroundColor: '#fff',
+    borderColor: colors.gray[200],
+    borderRadius: 16,
+    borderWidth: 1,
+    elevation: 2,
+    padding: 14,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  annualChartHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  annualChartTitle: { color: colors.dark, fontSize: 19, fontWeight: '800' },
+  annualChartSubtitle: { color: colors.gray[500], fontSize: 11, marginTop: 2 },
+  annualChartTotal: { fontSize: 16, fontWeight: '800' },
+  chartArea: {
+    alignItems: 'stretch',
+    flexDirection: 'row',
+    height: 180,
+    justifyContent: 'space-between',
+  },
+  chartColumn: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+    minWidth: 0,
+  },
+  chartBarTrack: {
+    backgroundColor: colors.gray[100],
+    borderRadius: 4,
+    height: 112,
+    justifyContent: 'flex-end',
+    marginHorizontal: 2,
+    overflow: 'hidden',
+    width: '68%',
+  },
+  chartBar: { borderRadius: 4, minHeight: 2, width: '100%' },
+  chartMonth: {
+    color: colors.gray[600],
+    fontSize: 9,
+    marginTop: 7,
+    textAlign: 'center',
+    textTransform: 'capitalize',
+  },
+  annualTotalsList: {
     backgroundColor: '#fff',
     borderColor: colors.gray[200],
     borderRadius: 14,
     borderWidth: 1,
-    elevation: 1,
+    marginTop: 12,
     overflow: 'hidden',
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 7,
   },
-  tableRow: {
+  annualTotalRow: {
     alignItems: 'center',
     borderBottomColor: colors.gray[100],
     borderBottomWidth: 1,
     flexDirection: 'row',
-    minHeight: 48,
-    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+    minHeight: 42,
+    paddingHorizontal: 14,
   },
-  tableRowAlternate: { backgroundColor: colors.gray[50] },
-  tableHeaderRow: { backgroundColor: '#EEECFF' },
-  tableHeaderCell: {
-    color: colors.primary,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  monthColumn: {
-    flex: 1.15,
-    minWidth: 0,
-  },
-  amountColumn: {
-    flex: 1,
-    minWidth: 0,
-    textAlign: 'right',
-  },
-  tableMonthCell: {
-    color: colors.gray[700],
-    fontSize: 14,
-    fontWeight: '800',
-    textTransform: 'capitalize',
-  },
-  tableAmountCell: {
-    color: colors.dark,
-    fontSize: 13,
-    fontWeight: '800',
-  },
+  annualTotalRowAlternate: { backgroundColor: colors.gray[50] },
+  annualTotalMonth: { color: colors.gray[700], fontSize: 14, fontWeight: '700' },
+  annualTotalValue: { fontSize: 14, fontWeight: '800' },
 });
