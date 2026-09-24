@@ -141,7 +141,6 @@ export default function TarjetasScreen({ navigation }: any) {
         <Text style={styles.periodButtonText}>{'<'}</Text>
       </TouchableOpacity>
       <View>
-        <Text style={styles.periodLabel}>MES SELECCIONADO</Text>
         <Text style={styles.periodTitle}>{tituloMes}</Text>
       </View>
       <TouchableOpacity onPress={() => cambiarMes(1)} style={styles.periodButton}>

@@ -14,7 +14,7 @@ import { Movimiento, SubtipoMovimiento } from '@models/index';
 import { movimientoService } from '@services/movimientoService';
 import { colors } from '@utils/colors';
 import { formatMoney } from '@utils/formatting';
-import { SidebarMenuButton, StatCard } from '@components/index';
+import { CustomModal, SidebarMenuButton, StatCard } from '@components/index';
 
 const SUBTIPOS_GASTO: SubtipoMovimiento[] = [
   'FIJO',
@@ -49,6 +49,8 @@ export default function GastosScreen() {
   const [vistaSeleccionada, setVistaSeleccionada] = useState<VistaGastos>('mes');
   const [subtipoAnualSeleccionado, setSubtipoAnualSeleccionado] =
     useState<SubtipoAnual>('FIJO');
+  const [totalGastosView, setTotalGastosView] = useState<'detalle' | 'grafico'>('detalle');
+  const [totalGastosModalVisible, setTotalGastosModalVisible] = useState(false);
 
   const loadMovimientos = async () => {
     try {
@@ -189,9 +191,9 @@ export default function GastosScreen() {
               <Text style={styles.monthButtonText}>{'<'}</Text>
             </TouchableOpacity>
             <View>
-              <Text style={styles.monthLabel}>
-                {vistaSeleccionada === 'mes' ? 'MES SELECCIONADO' : 'AÑO SELECCIONADO'}
-              </Text>
+              {vistaSeleccionada === 'anio' && (
+                <Text style={styles.monthLabel}>AÑO SELECCIONADO</Text>
+              )}
               <Text style={styles.monthTitle}>
                 {vistaSeleccionada === 'mes' ? tituloMes : anioSeleccionado}
               </Text>
@@ -236,6 +238,7 @@ export default function GastosScreen() {
             value={totalGastos}
             type="egreso"
             color={colors.danger}
+            onPress={() => setTotalGastosModalVisible(true)}
           />
         </View>
 
@@ -367,6 +370,87 @@ export default function GastosScreen() {
           </View>
         )}
       </ScrollView>
+        <CustomModal
+          visible={totalGastosModalVisible}
+          title="Total gastos"
+          onClose={() => setTotalGastosModalVisible(false)}
+          headerAction={(
+            <TouchableOpacity
+              onPress={() => setTotalGastosView((view) => view === 'detalle' ? 'grafico' : 'detalle')}
+              style={styles.modalSwitch}
+            >
+              <Text style={styles.modalSwitchText}>
+                {totalGastosView === 'detalle' ? 'Gráfico' : 'Detalle'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        >
+          {totalGastosView === 'detalle' ? (
+            <View>
+              <Text style={styles.modalPeriod}>{tituloMes}</Text>
+              {totalesPorSubtipo.map((item) => {
+                const porcentaje = totalGastos > 0 ? (item.total / totalGastos) * 100 : 0;
+                return (
+                  <View key={item.subtipo} style={styles.modalExpenseRow}>
+                    <View style={[styles.modalExpenseDot, { backgroundColor: item.color }]} />
+                    <View style={styles.modalExpenseInfo}>
+                      <View style={styles.modalExpenseHeader}>
+                        <Text style={styles.modalExpenseName}>{item.subtipo}</Text>
+                        <Text style={styles.modalExpenseAmount}>{formatMoney(item.total)}</Text>
+                      </View>
+                      <View style={styles.modalProgressTrack}>
+                        <View style={[styles.modalProgressFill, { backgroundColor: item.color, width: `${porcentaje}%` }]} />
+                      </View>
+                      <Text style={styles.modalExpensePercent}>{porcentaje.toFixed(1)}% del total</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View style={styles.modalPieContent}>
+              <Text style={styles.modalPeriod}>{tituloMes}</Text>
+              <Svg width={230} height={230} viewBox="0 0 230 230">
+                <Circle cx="115" cy="115" r="78" fill="transparent" stroke={colors.gray[100]} strokeWidth="38" />
+                {totalesPorSubtipo.reduce<{ offset: number; elements: React.ReactNode[] }>(
+                  (chart, item) => {
+                    if (item.total === 0 || totalGastos === 0) return chart;
+                    const percentage = item.total / totalGastos;
+                    chart.elements.push(
+                      <Circle
+                        key={item.subtipo}
+                        cx="115"
+                        cy="115"
+                        r="78"
+                        fill="transparent"
+                        stroke={item.color}
+                        strokeDasharray={`${percentage * 490.1} 490.1`}
+                        strokeDashoffset={-chart.offset}
+                        strokeWidth="38"
+                        rotation="-90"
+                        origin="115, 115"
+                      />
+                    );
+                    chart.offset += percentage * 490.1;
+                    return chart;
+                  },
+                  { offset: 0, elements: [] }
+                ).elements}
+              </Svg>
+              <View style={styles.modalPieLegend}>
+                {totalesPorSubtipo.map((item) => (
+                  <View key={item.subtipo} style={styles.modalPieLegendRow}>
+                    <View style={[styles.modalPieLegendDot, { backgroundColor: item.color }]} />
+                    <Text style={styles.modalPieLegendName}>{item.subtipo}</Text>
+                    <Text style={styles.modalPieLegendValue}>
+                      {totalGastos > 0 ? `${((item.total / totalGastos) * 100).toFixed(1)}%` : '0%'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+        </CustomModal>
     </View>
   );
 }
@@ -548,6 +632,42 @@ const styles = StyleSheet.create({
   annualTotalRowAlternate: { backgroundColor: colors.gray[50] },
   annualTotalMonth: { color: colors.gray[700], fontSize: 14, fontWeight: '700' },
   annualTotalValue: { fontSize: 14, fontWeight: '800' },
+  sectionHeaderRow: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  totalViewSwitch: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  totalViewSwitchText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  monthPieCard: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: colors.gray[200],
+    borderRadius: 16,
+    borderWidth: 1,
+    elevation: 2,
+    padding: 14,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  monthPieLegend: { alignSelf: 'stretch', flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  monthPieLegendRow: { alignItems: 'center', flexDirection: 'row', gap: 6, width: '48%' },
+  modalSwitch: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
+  modalSwitchText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  modalPeriod: { color: colors.gray[500], fontSize: 12, fontWeight: '700', marginBottom: 12, textTransform: 'capitalize' },
+  modalExpenseRow: { alignItems: 'center', flexDirection: 'row', marginBottom: 14 },
+  modalExpenseDot: { borderRadius: 6, height: 12, marginRight: 10, width: 12 },
+  modalExpenseInfo: { flex: 1 },
+  modalExpenseHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  modalExpenseName: { color: colors.dark, fontSize: 14, fontWeight: '800' },
+  modalExpenseAmount: { color: colors.dark, fontSize: 14, fontWeight: '800' },
+  modalProgressTrack: { backgroundColor: colors.gray[100], borderRadius: 4, height: 6, marginTop: 7, overflow: 'hidden' },
+  modalProgressFill: { borderRadius: 4, height: 6 },
+  modalExpensePercent: { color: colors.gray[500], fontSize: 10, marginTop: 4 },
+  modalPieContent: { alignItems: 'center' },
+  modalPieLegend: { alignSelf: 'stretch', flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  modalPieLegendRow: { alignItems: 'center', flexDirection: 'row', gap: 6, width: '48%' },
+  modalPieLegendDot: { borderRadius: 6, height: 12, width: 12 },
+  modalPieLegendName: { color: colors.gray[600], flex: 1, fontSize: 11, fontWeight: '700' },
+  modalPieLegendValue: { color: colors.dark, fontSize: 11, fontWeight: '800' },
   sectionLabel: {
     color: colors.gray[500],
     fontSize: 10,

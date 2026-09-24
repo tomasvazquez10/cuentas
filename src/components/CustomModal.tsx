@@ -15,6 +15,7 @@ interface CustomModalProps {
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  headerAction?: React.ReactNode;
 }
 
 export const CustomModal: React.FC<CustomModalProps> = ({
@@ -23,6 +24,7 @@ export const CustomModal: React.FC<CustomModalProps> = ({
   onClose,
   children,
   footer,
+  headerAction,
 }) => {
   return (
     <Modal
@@ -35,9 +37,12 @@ export const CustomModal: React.FC<CustomModalProps> = ({
         <View style={styles.modalContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Text style={styles.closeButton}>✕</Text>
-            </TouchableOpacity>
+            <View style={styles.headerActions}>
+              {headerAction}
+              <TouchableOpacity onPress={onClose}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           <ScrollView style={styles.content}>{children}</ScrollView>
           {footer && <View style={styles.footer}>{footer}</View>}
@@ -80,6 +85,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: colors.gray[400],
   },
+  headerActions: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   content: {
     flex: 1,
     paddingHorizontal: 20,

@@ -93,7 +93,6 @@ export default function HomeScreen({ navigation }: any) {
           <Text style={styles.monthButtonText}>‹</Text>
         </TouchableOpacity>
         <View>
-          <Text style={styles.monthLabel}>MES SELECCIONADO</Text>
           <Text style={styles.monthTitle}>{tituloMes}</Text>
         </View>
         <TouchableOpacity

@@ -570,7 +570,6 @@ export default function MovimientosScreen({ navigation, route }: any) {
               <Text style={styles.monthButtonText}>‹</Text>
             </TouchableOpacity>
             <View>
-              <Text style={styles.monthLabel}>MES SELECCIONADO</Text>
               <Text style={styles.monthTitle}>{tituloMes}</Text>
             </View>
             <TouchableOpacity accessibilityLabel="Mes siguiente" onPress={() => cambiarMes(1)} style={styles.monthButton}>

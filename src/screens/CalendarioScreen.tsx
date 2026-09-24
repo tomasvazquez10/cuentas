@@ -361,7 +361,6 @@ export default function CalendarioScreen({ navigation }: any) {
             <Text style={styles.monthButtonText}>‹</Text>
           </TouchableOpacity>
           <View>
-            <Text style={styles.monthLabel}>MES SELECCIONADO</Text>
             <Text style={styles.monthTitle}>{tituloMes}</Text>
           </View>
           <TouchableOpacity onPress={() => cambiarMes(1)} style={styles.monthButton}>
