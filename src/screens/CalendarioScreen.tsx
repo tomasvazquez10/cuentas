@@ -11,6 +11,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { calendarioPagoService } from '@services/calendarioPagoService';
+import { movimientoService } from '@services/movimientoService';
 import { formatMoney } from '@utils/formatting';
 import { Button, Input, CustomModal, PagoCard, SidebarMenuButton, StatCard, ConfirmDialog } from '@components/index';
 import { CalendarioPago } from '@models/index';
@@ -69,7 +70,7 @@ const parseMonto = (value: string) => {
   return Number.isFinite(amount) ? amount : NaN;
 };
 
-export default function CalendarioScreen({ navigation }: any) {
+export default function CalendarioScreen() {
   const [pagos, setPagos] = useState<CalendarioPago[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -90,7 +91,6 @@ export default function CalendarioScreen({ navigation }: any) {
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
-  const [pagoPendienteMovimiento, setPagoPendienteMovimiento] = useState<CalendarioPago | null>(null);
   const [pagoDialog, setPagoDialog] = useState<CalendarioPago | null>(null);
 
   const loadPagos = async () => {
@@ -179,19 +179,16 @@ export default function CalendarioScreen({ navigation }: any) {
       setPagos((pagosActuales) =>
         pagosActuales.map((pago) => (pago.id === pagoId ? pagoActualizado : pago))
       );
+      return true;
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo actualizar el pago');
+      return false;
     }
   };
 
-  const handleTogglePago = (pago: CalendarioPago, completed: boolean) => {
-    if (!completed) {
-      void actualizarEstadoPago(pago.id, false);
-      return;
-    }
-
-    void actualizarEstadoPago(pago.id, true);
-    setPagoDialog(pago);
+  const handleTogglePago = async (pago: CalendarioPago, completed: boolean) => {
+    const actualizado = await actualizarEstadoPago(pago.id, completed);
+    if (actualizado && completed) setPagoDialog(pago);
   };
 
   const handleDeletePago = (pago: CalendarioPago) => {
@@ -231,17 +228,20 @@ export default function CalendarioScreen({ navigation }: any) {
     setModalVisible(true);
   };
 
-  const abrirMovimientoDesdePago = (pago: CalendarioPago) => {
-    navigation.navigate('Movimientos', {
-      prefillMovimiento: {
+  const crearMovimientoDesdePago = async (pago: CalendarioPago) => {
+    try {
+      await movimientoService.crear({
         concepto: pago.servicio,
         fecha: toDateKey(new Date()),
         tipo: 'GASTO',
         subtipo: 'FIJO',
         metodo: 'EFECTIVO',
-        monto: String(pago.monto),
-      },
-    });
+        monto: pago.monto,
+      });
+      Alert.alert('Éxito', 'Pago registrado como movimiento');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo registrar el pago como movimiento');
+    }
   };
 
   const cambiarMes = (desplazamiento: number) => {
@@ -441,30 +441,6 @@ export default function CalendarioScreen({ navigation }: any) {
         </View>
 
         <View style={styles.section}>
-          {pagoPendienteMovimiento && (
-            <View style={styles.movementPrompt}>
-              <Text style={styles.movementPromptTitle}>Registrar como movimiento?</Text>
-              <Text style={styles.movementPromptText}>
-                {pagoPendienteMovimiento.servicio} se marco como pagado. Queres cargarlo como gasto?
-              </Text>
-              <View style={styles.movementPromptActions}>
-                <TouchableOpacity
-                  onPress={() => setPagoPendienteMovimiento(null)}
-                  style={styles.movementPromptSecondary}
-                >
-                  <Text style={styles.movementPromptSecondaryText}>No, gracias</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    if (pagoPendienteMovimiento) abrirMovimientoDesdePago(pagoPendienteMovimiento);
-                  }}
-                  style={styles.movementPromptPrimary}
-                >
-                  <Text style={styles.movementPromptPrimaryText}>Si, cargar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
           <ConfirmDialog
             visible={!!pagoDialog}
             title="Registrar como movimiento?"
@@ -476,7 +452,7 @@ export default function CalendarioScreen({ navigation }: any) {
               if (!pagoDialog) return;
               const pago = pagoDialog;
               setPagoDialog(null);
-              abrirMovimientoDesdePago(pago);
+              void crearMovimientoDesdePago(pago);
             }}
           />
           <View style={styles.sectionHeader}>
@@ -737,14 +713,6 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.dark },
   selectedTotal: { color: colors.danger, fontSize: 12, fontWeight: '800' },
-  movementPrompt: { backgroundColor: '#EEEDFF', borderRadius: 16, marginBottom: 18, padding: 16 },
-  movementPromptTitle: { color: colors.primary, fontSize: 15, fontWeight: '800' },
-  movementPromptText: { color: colors.gray[600], fontSize: 13, lineHeight: 19, marginTop: 5 },
-  movementPromptActions: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  movementPromptSecondary: { alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, flex: 1, paddingVertical: 11 },
-  movementPromptSecondaryText: { color: colors.gray[600], fontSize: 12, fontWeight: '700' },
-  movementPromptPrimary: { alignItems: 'center', backgroundColor: colors.primary, borderRadius: 12, flex: 1, paddingVertical: 11 },
-  movementPromptPrimaryText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   clearSelection: { color: colors.primary, fontSize: 13, fontWeight: '700', marginTop: -6, marginBottom: 12 },
   emptyText: { color: colors.gray[500], fontSize: 14, paddingVertical: 18, textAlign: 'center' },
   fabContainer: { position: 'absolute', right: 20, bottom: 20 },
@@ -791,7 +759,5 @@ const styles = StyleSheet.create({
   previewTitle: { color: colors.dark, fontSize: 16, fontWeight: '800' },
   previewText: { color: colors.gray[600], fontSize: 13, lineHeight: 18, marginTop: 4 },
 });
-
-
 
 
