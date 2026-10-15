@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   RefreshControl,
@@ -10,20 +10,19 @@ import {
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
-import { Movimiento, SubtipoMovimiento } from '@models/index';
+import { Movimiento, SubtipoMovimiento, TipoMovimiento } from '@models/index';
 import { movimientoService } from '@services/movimientoService';
 import { colors } from '@utils/colors';
 import { formatMoney } from '@utils/formatting';
 import { CustomModal, SidebarMenuButton, StatCard } from '@components/index';
 
-const SUBTIPOS_GASTO: SubtipoMovimiento[] = [
-  'FIJO',
-  'BOLUDES',
-  'DEPTO',
-  'SALIDAS',
-  'SUPER',
-  'VIAJES',
-];
+const TIPOS_MOVIMIENTO: TipoMovimiento[] = ['ENTRADA', 'GASTO', 'AHORRO', 'INVERSION'];
+const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
+  ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
+  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER', 'VIAJES', 'SC'],
+  AHORRO: ['DOLAR'],
+  INVERSION: ['CEDEARS'],
+};
 
 const SUBTIPO_COLORS: Record<string, string> = {
   FIJO: '#4F46E5',
@@ -32,7 +31,14 @@ const SUBTIPO_COLORS: Record<string, string> = {
   SALIDAS: '#F97316',
   SUPER: '#16A34A',
   VIAJES: '#0284C7',
+  SC: '#A855F7',
+  SUELDO: '#22C55E',
+  BONO: '#F59E0B',
+  OTRO: '#94A3B8',
+  DOLAR: '#0EA5E9',
+  CEDEARS: '#14B8A6',
 };
+
 type VistaGastos = 'mes' | 'anio';
 type SubtipoAnual = SubtipoMovimiento | 'TOTAL';
 
@@ -47,18 +53,48 @@ export default function GastosScreen() {
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
   const [vistaSeleccionada, setVistaSeleccionada] = useState<VistaGastos>('mes');
+  const [tipoSeleccionado, setTipoSeleccionado] = useState<TipoMovimiento>('GASTO');
   const [subtipoAnualSeleccionado, setSubtipoAnualSeleccionado] =
-    useState<SubtipoAnual>('FIJO');
-  const [totalGastosView, setTotalGastosView] = useState<'detalle' | 'grafico'>('detalle');
+    useState<SubtipoAnual>('TOTAL');
   const [totalGastosModalVisible, setTotalGastosModalVisible] = useState(false);
 
+  const tipoLabels: Record<TipoMovimiento, string> = {
+    ENTRADA: 'Entradas',
+    GASTO: 'Gastos',
+    AHORRO: 'Ahorro',
+    INVERSION: 'Inversión',
+  };
+
+  const tipoColores: Record<TipoMovimiento, string> = {
+    ENTRADA: colors.ingresos,
+    GASTO: colors.egresos,
+    AHORRO: '#0EA5E9',
+    INVERSION: '#14B8A6',
+  };
+
+  const subtiposDisponibles = useMemo(
+    () => SUBTIPOS_POR_TIPO[tipoSeleccionado],
+    [tipoSeleccionado]
+  );
+
+  useEffect(() => {
+    if (
+      subtipoAnualSeleccionado !== 'TOTAL' &&
+      !subtiposDisponibles.includes(subtipoAnualSeleccionado as SubtipoMovimiento)
+    ) {
+      setSubtipoAnualSeleccionado('TOTAL');
+    }
+  }, [subtipoAnualSeleccionado, subtiposDisponibles]);
+
+  const tipoActualLabel = tipoLabels[tipoSeleccionado];
+  const tipoActualColor = tipoColores[tipoSeleccionado];
   const loadMovimientos = async () => {
     try {
       setLoading(true);
       const data = await movimientoService.listar();
       setMovimientos(data);
     } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los gastos');
+      Alert.alert('Error', 'No se pudieron cargar los movimientos');
     } finally {
       setLoading(false);
     }
@@ -89,37 +125,39 @@ export default function GastosScreen() {
 
   const totalesPorSubtipo = useMemo(() => {
     const claveMesSeleccionado = getMonthKey(mesSeleccionado);
-    const totales = SUBTIPOS_GASTO.reduce<Record<string, number>>((acc, subtipo) => {
+    const totales = subtiposDisponibles.reduce<Record<string, number>>((acc, subtipo) => {
       acc[subtipo] = 0;
       return acc;
     }, {});
 
     movimientos.forEach((movimiento) => {
       if (
-        movimiento.tipo === 'GASTO' &&
+        movimiento.tipo === tipoSeleccionado &&
         movimiento.fecha.slice(0, 7) === claveMesSeleccionado &&
-        SUBTIPOS_GASTO.includes(movimiento.subtipo as SubtipoMovimiento)
+        subtiposDisponibles.includes(movimiento.subtipo as SubtipoMovimiento)
       ) {
         totales[movimiento.subtipo] += Number(movimiento.monto);
       }
     });
 
-    return SUBTIPOS_GASTO.map((subtipo, index) => ({
-      subtipo,
-      total: totales[subtipo],
-      color: SUBTIPO_COLORS[subtipo],
-      index,
-    })).sort((a, b) => b.total - a.total || a.index - b.index);
-  }, [mesSeleccionado, movimientos]);
+    return subtiposDisponibles
+      .map((subtipo, index) => ({
+        subtipo,
+        total: totales[subtipo],
+        color: SUBTIPO_COLORS[subtipo],
+        index,
+      }))
+      .sort((a, b) => b.total - a.total || a.index - b.index);
+  }, [mesSeleccionado, movimientos, subtiposDisponibles, tipoSeleccionado]);
 
-  const totalGastos = totalesPorSubtipo.reduce((sum, item) => sum + item.total, 0);
+  const totalActual = totalesPorSubtipo.reduce((sum, item) => sum + item.total, 0);
   const anioSeleccionado = mesSeleccionado.getFullYear();
   const totalesAnualesPorSubtipo = Array.from({ length: 12 }, (_, index) => {
     const claveMes = `${anioSeleccionado}-${String(index + 1).padStart(2, '0')}`;
     const total = movimientos
       .filter(
         (movimiento) =>
-          movimiento.tipo === 'GASTO' &&
+          movimiento.tipo === tipoSeleccionado &&
           (subtipoAnualSeleccionado === 'TOTAL' ||
             movimiento.subtipo === subtipoAnualSeleccionado) &&
           movimiento.fecha.slice(0, 7) === claveMes
@@ -134,21 +172,21 @@ export default function GastosScreen() {
   const maximoTotalAnual = Math.max(...totalesAnualesPorSubtipo.map((item) => item.total), 1);
   const colorSubtipoAnual =
     subtipoAnualSeleccionado === 'TOTAL'
-      ? colors.danger
+      ? tipoActualColor
       : SUBTIPO_COLORS[subtipoAnualSeleccionado];
-  const totalesAnualesPorTipo = SUBTIPOS_GASTO.map((subtipo) => ({
+  const totalesAnualesPorTipo = subtiposDisponibles.map((subtipo) => ({
     subtipo,
     total: movimientos
       .filter(
         (movimiento) =>
-          movimiento.tipo === 'GASTO' &&
+          movimiento.tipo === tipoSeleccionado &&
           movimiento.subtipo === subtipo &&
           movimiento.fecha.slice(0, 4) === String(anioSeleccionado)
       )
       .reduce((sum, movimiento) => sum + Number(movimiento.monto), 0),
     color: SUBTIPO_COLORS[subtipo],
   }));
-  const totalAnualGastos = totalesAnualesPorTipo.reduce((sum, item) => sum + item.total, 0);
+  const totalAnualActual = totalesAnualesPorTipo.reduce((sum, item) => sum + item.total, 0);
 
   const cambiarAnio = (desplazamiento: number) => {
     setMesSeleccionado((mes) => new Date(mes.getFullYear() + desplazamiento, mes.getMonth(), 1));
@@ -164,7 +202,7 @@ export default function GastosScreen() {
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <SidebarMenuButton />
-            <Text style={styles.headerTitle}>Gastos</Text>
+            <Text style={styles.headerTitle}>Resumen</Text>
           </View>
         </View>
 
@@ -182,6 +220,25 @@ export default function GastosScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {vistaSeleccionada === 'mes' && <View style={styles.typeSelector}>
+            {TIPOS_MOVIMIENTO.map((tipo) => {
+              const selected = tipo === tipoSeleccionado;
+              return (
+                <TouchableOpacity
+                  key={tipo}
+                  onPress={() => setTipoSeleccionado(tipo)}
+                  style={[styles.typeOption, selected && { backgroundColor: tipoColores[tipo] }]}
+                >
+                  <Text
+                    style={[styles.typeOptionText, selected && styles.typeOptionTextSelected]}
+                  >
+                    {tipoLabels[tipo]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>}
           <View style={styles.monthSelector}>
             <TouchableOpacity
               accessibilityLabel={vistaSeleccionada === 'mes' ? 'Mes anterior' : 'Año anterior'}
@@ -212,9 +269,9 @@ export default function GastosScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.subtipoSelector}
             >
-              {(['TOTAL', ...SUBTIPOS_GASTO] as const).map((subtipo) => {
+              {(['TOTAL', ...subtiposDisponibles] as const).map((subtipo) => {
                 const selected = subtipo === subtipoAnualSeleccionado;
-                const color = subtipo === 'TOTAL' ? colors.danger : SUBTIPO_COLORS[subtipo];
+                const color = subtipo === 'TOTAL' ? tipoActualColor : SUBTIPO_COLORS[subtipo];
                 return (
                   <TouchableOpacity
                     key={subtipo}
@@ -234,19 +291,19 @@ export default function GastosScreen() {
         {vistaSeleccionada === 'mes' ? <>
         <View style={styles.totalContainer}>
           <StatCard
-            label="Total gastos"
-            value={totalGastos}
-            type="egreso"
-            color={colors.danger}
+            label={`Total ${tipoActualLabel.toLowerCase()}`}
+            value={totalActual}
+            type={tipoSeleccionado === 'ENTRADA' ? 'ingreso' : tipoSeleccionado === 'GASTO' ? 'egreso' : 'neutral'}
+            color={tipoActualColor}
             onPress={() => setTotalGastosModalVisible(true)}
           />
         </View>
 
         <View style={styles.listContainer}>
-          <Text style={styles.sectionLabel}>GASTOS POR SUBTIPO</Text>
+          <Text style={styles.sectionLabel}>{tipoActualLabel.toUpperCase()} POR SUBTIPO</Text>
 
           {totalesPorSubtipo.map((item) => {
-            const porcentaje = totalGastos > 0 ? (item.total / totalGastos) * 100 : 0;
+            const porcentaje = totalActual > 0 ? (item.total / totalActual) * 100 : 0;
 
             return (
               <View key={item.subtipo} style={styles.expenseRow}>
@@ -273,9 +330,9 @@ export default function GastosScreen() {
             );
           })}
 
-          {!loading && totalGastos === 0 && (
+          {!loading && totalActual === 0 && (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No hay gastos cargados para este mes</Text>
+              <Text style={styles.emptyText}>No hay {tipoActualLabel.toLowerCase()} cargados para este mes</Text>
             </View>
           )}
         </View>
@@ -288,8 +345,8 @@ export default function GastosScreen() {
                     <Text style={styles.annualChartTitle}>TOTAL</Text>
                     <Text style={styles.annualChartSubtitle}>Distribución anual</Text>
                   </View>
-                  <Text style={[styles.annualChartTotal, { color: colors.danger }]}> 
-                    {formatMoney(totalAnualGastos)}
+                  <Text style={[styles.annualChartTotal, { color: tipoActualColor }]}> 
+                    {formatMoney(totalAnualActual)}
                   </Text>
                 </View>
                 <View style={styles.pieChartContent}>
@@ -297,8 +354,8 @@ export default function GastosScreen() {
                     <Circle cx="115" cy="115" r="78" fill="transparent" stroke={colors.gray[100]} strokeWidth="38" />
                     {totalesAnualesPorTipo.reduce<{ offset: number; elements: React.ReactNode[] }>(
                       (chart, item) => {
-                        if (item.total === 0 || totalAnualGastos === 0) return chart;
-                        const percentage = item.total / totalAnualGastos;
+                        if (item.total === 0 || totalAnualActual === 0) return chart;
+                        const percentage = item.total / totalAnualActual;
                         chart.elements.push(
                           <Circle
                             key={item.subtipo}
@@ -326,7 +383,7 @@ export default function GastosScreen() {
                         <View style={[styles.pieLegendDot, { backgroundColor: item.color }]} />
                         <Text style={styles.pieLegendLabel}>{item.subtipo}</Text>
                         <Text style={styles.pieLegendValue}>
-                          {totalAnualGastos > 0 ? `${((item.total / totalAnualGastos) * 100).toFixed(1)}%` : '0%'}
+                          {totalAnualActual > 0 ? `${((item.total / totalAnualActual) * 100).toFixed(1)}%` : '0%'}
                         </Text>
                       </View>
                     ))}
@@ -339,7 +396,7 @@ export default function GastosScreen() {
                   <View style={styles.annualChartHeader}>
                     <View>
                       <Text style={styles.annualChartTitle}>{subtipoAnualSeleccionado}</Text>
-                      <Text style={styles.annualChartSubtitle}>Gasto mensual</Text>
+                      <Text style={styles.annualChartSubtitle}>{tipoActualLabel}</Text>
                     </View>
                     <Text style={[styles.annualChartTotal, { color: colorSubtipoAnual }]}> 
                       {formatMoney(totalesAnualesPorSubtipo.reduce((sum, item) => sum + item.total, 0))}
@@ -359,9 +416,14 @@ export default function GastosScreen() {
 
                 <View style={styles.annualTotalsList}>
                   {totalesAnualesPorSubtipo.map((item, index) => (
-                    <View key={item.mes} style={[styles.annualTotalRow, index % 2 === 1 && styles.annualTotalRowAlternate]}>
+                    <View
+                      key={`${item.mes}-${index}`}
+                      style={[styles.annualTotalRow, index % 2 === 1 && styles.annualTotalRowAlternate]}
+                    >
                       <Text style={styles.annualTotalMonth}>{item.mes}</Text>
-                      <Text style={[styles.annualTotalValue, { color: colorSubtipoAnual }]}>{formatMoney(item.total)}</Text>
+                      <Text style={[styles.annualTotalValue, { color: colorSubtipoAnual }]}> 
+                        {formatMoney(item.total)}
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -369,92 +431,50 @@ export default function GastosScreen() {
             )}
           </View>
         )}
-      </ScrollView>
+
         <CustomModal
           visible={totalGastosModalVisible}
-          title="Total gastos"
           onClose={() => setTotalGastosModalVisible(false)}
-          headerAction={(
-            <TouchableOpacity
-              onPress={() => setTotalGastosView((view) => view === 'detalle' ? 'grafico' : 'detalle')}
-              style={styles.modalSwitch}
-            >
-              <Text style={styles.modalSwitchText}>
-                {totalGastosView === 'detalle' ? 'Gráfico' : 'Detalle'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          title={`${tipoActualLabel} por subtipo`}
         >
-          {totalGastosView === 'detalle' ? (
-            <View>
+          <View>
+            <View style={styles.sectionHeaderRow}>
               <Text style={styles.modalPeriod}>{tituloMes}</Text>
-              {totalesPorSubtipo.map((item) => {
-                const porcentaje = totalGastos > 0 ? (item.total / totalGastos) * 100 : 0;
-                return (
-                  <View key={item.subtipo} style={styles.modalExpenseRow}>
-                    <View style={[styles.modalExpenseDot, { backgroundColor: item.color }]} />
-                    <View style={styles.modalExpenseInfo}>
-                      <View style={styles.modalExpenseHeader}>
-                        <Text style={styles.modalExpenseName}>{item.subtipo}</Text>
-                        <Text style={styles.modalExpenseAmount}>{formatMoney(item.total)}</Text>
-                      </View>
-                      <View style={styles.modalProgressTrack}>
-                        <View style={[styles.modalProgressFill, { backgroundColor: item.color, width: `${porcentaje}%` }]} />
-                      </View>
-                      <Text style={styles.modalExpensePercent}>{porcentaje.toFixed(1)}% del total</Text>
+            </View>
+
+            {totalesPorSubtipo.map((item) => {
+              const porcentaje = totalActual > 0 ? (item.total / totalActual) * 100 : 0;
+
+              return (
+                <View key={item.subtipo} style={styles.modalExpenseRow}>
+                  <View style={[styles.modalExpenseDot, { backgroundColor: item.color }]} />
+                  <View style={styles.modalExpenseInfo}>
+                    <View style={styles.modalExpenseHeader}>
+                      <Text style={styles.modalExpenseName}>{item.subtipo}</Text>
+                      <Text style={styles.modalExpenseAmount}>{formatMoney(item.total)}</Text>
                     </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            <View style={styles.modalPieContent}>
-              <Text style={styles.modalPeriod}>{tituloMes}</Text>
-              <Svg width={230} height={230} viewBox="0 0 230 230">
-                <Circle cx="115" cy="115" r="78" fill="transparent" stroke={colors.gray[100]} strokeWidth="38" />
-                {totalesPorSubtipo.reduce<{ offset: number; elements: React.ReactNode[] }>(
-                  (chart, item) => {
-                    if (item.total === 0 || totalGastos === 0) return chart;
-                    const percentage = item.total / totalGastos;
-                    chart.elements.push(
-                      <Circle
-                        key={item.subtipo}
-                        cx="115"
-                        cy="115"
-                        r="78"
-                        fill="transparent"
-                        stroke={item.color}
-                        strokeDasharray={`${percentage * 490.1} 490.1`}
-                        strokeDashoffset={-chart.offset}
-                        strokeWidth="38"
-                        rotation="-90"
-                        origin="115, 115"
+                    <View style={styles.modalProgressTrack}>
+                      <View
+                        style={[
+                          styles.modalProgressFill,
+                          {
+                            backgroundColor: item.color,
+                            width: `${porcentaje}%`,
+                          },
+                        ]}
                       />
-                    );
-                    chart.offset += percentage * 490.1;
-                    return chart;
-                  },
-                  { offset: 0, elements: [] }
-                ).elements}
-              </Svg>
-              <View style={styles.modalPieLegend}>
-                {totalesPorSubtipo.map((item) => (
-                  <View key={item.subtipo} style={styles.modalPieLegendRow}>
-                    <View style={[styles.modalPieLegendDot, { backgroundColor: item.color }]} />
-                    <Text style={styles.modalPieLegendName}>{item.subtipo}</Text>
-                    <Text style={styles.modalPieLegendValue}>
-                      {totalGastos > 0 ? `${((item.total / totalGastos) * 100).toFixed(1)}%` : '0%'}
-                    </Text>
+                    </View>
+                    <Text style={styles.modalExpensePercent}>{porcentaje.toFixed(1)}% del total</Text>
                   </View>
-                ))}
-              </View>
-            </View>
-          )}
+                </View>
+              );
+            })}
+          </View>
         </CustomModal>
+      </ScrollView>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -540,6 +560,25 @@ const styles = StyleSheet.create({
   viewOptionSelected: { backgroundColor: colors.primary },
   viewOptionText: { color: colors.gray[600], fontSize: 12, fontWeight: '800' },
   viewOptionTextSelected: { color: '#fff' },
+  typeSelector: {
+    flexDirection: 'row',
+    gap: 6,
+    marginHorizontal: 20,
+    marginTop: 10,
+  },
+  typeOption: {
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderColor: colors.gray[200],
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: 'center',
+    minHeight: 36,
+    paddingHorizontal: 4,
+  },
+  typeOptionText: { color: colors.gray[600], fontSize: 10, fontWeight: '800' },
+  typeOptionTextSelected: { color: '#fff' },
   totalContainer: {
     marginTop: 18,
     marginHorizontal: 20,

@@ -24,7 +24,7 @@ const SIDEBAR_WIDTH = 236;
 const sidebarItems = [
   { name: 'Home', label: 'Inicio', icon: '🏠' },
   { name: 'Movimientos', label: 'Movimientos', icon: '💸' },
-  { name: 'Gastos', label: 'Gastos', icon: '$' },
+  { name: 'Resumen', label: 'Resumen', icon: '$' },
   { name: 'Calendario', label: 'Pagos', icon: '📅' },
   { name: 'Tarjetas', label: 'Tarjetas', icon: '💳' },
   { name: 'Grupos', label: 'Grupos', icon: '👥' },
@@ -127,10 +127,10 @@ function AppTabs() {
         }}
       />
       <Tab.Screen
-        name="Gastos"
+        name="Resumen"
         component={withSidebarSpace(GastosScreen)}
         options={{
-          title: 'Gastos',
+          title: 'Resumen',
         }}
       />
       <Tab.Screen
