@@ -42,9 +42,13 @@ export const PagoCard: React.FC<PagoCardProps> = ({
           </Text>
         )}
       </TouchableOpacity>
-      <View style={styles.monto}>
+      <TouchableOpacity
+        accessibilityLabel={`Ver detalle del pago de ${pago.servicio}`}
+        onPress={onPress}
+        style={styles.monto}
+      >
         <Text style={styles.montoText}>{formatMoney(pago.monto)}</Text>
-      </View>
+      </TouchableOpacity>
       {onToggle && (
         <Switch
           value={pago.pago}

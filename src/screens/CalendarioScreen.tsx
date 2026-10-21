@@ -15,6 +15,7 @@ import { movimientoService } from '@services/movimientoService';
 import { formatMoney } from '@utils/formatting';
 import { Button, Input, CustomModal, PagoCard, SidebarMenuButton, StatCard, ConfirmDialog } from '@components/index';
 import { CalendarioPago } from '@models/index';
+import { DatePickerField } from '@components/DatePickerField';
 
 const WEEK_DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const SERVICE_SUGGESTIONS = ['Edenor', 'Naturgy', 'Internet', 'VISA', 'AMEX', 'MPAGO'];
@@ -87,6 +88,12 @@ export default function CalendarioScreen() {
     monto: '',
     fecha: '',
   });
+  const [pagoSeleccionado, setPagoSeleccionado] = useState<CalendarioPago | null>(null);
+  const [editandoPago, setEditandoPago] = useState(false);
+  const [montoEdicion, setMontoEdicion] = useState('');
+  const [fechaEdicion, setFechaEdicion] = useState('');
+  const [erroresEdicion, setErroresEdicion] = useState({ monto: '', fecha: '' });
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
@@ -189,6 +196,67 @@ export default function CalendarioScreen() {
   const handleTogglePago = async (pago: CalendarioPago, completed: boolean) => {
     const actualizado = await actualizarEstadoPago(pago.id, completed);
     if (actualizado && completed) setPagoDialog(pago);
+  };
+
+  const abrirDetallePago = (pago: CalendarioPago) => {
+    setPagoSeleccionado(pago);
+    setEditandoPago(false);
+    setMontoEdicion(String(pago.monto));
+    setFechaEdicion(getPagoDateKey(pago.fecha));
+    setErroresEdicion({ monto: '', fecha: '' });
+  };
+
+  const activarEdicionPago = () => {
+    setEditandoPago(true);
+  };
+
+  const cerrarDetallePago = () => {
+    setPagoSeleccionado(null);
+    setEditandoPago(false);
+    setErroresEdicion({ monto: '', fecha: '' });
+  };
+
+  const cancelarEdicionPago = () => {
+    if (!pagoSeleccionado) return;
+    setMontoEdicion(String(pagoSeleccionado.monto));
+    setFechaEdicion(getPagoDateKey(pagoSeleccionado.fecha));
+    setErroresEdicion({ monto: '', fecha: '' });
+    setEditandoPago(false);
+  };
+
+  const guardarEdicionPago = async () => {
+    if (!pagoSeleccionado) return;
+
+    const montoNumerico = parseMonto(montoEdicion);
+    const fechaValida = parseLocalDate(fechaEdicion);
+    const nextErrors = {
+      monto:
+        Number.isFinite(montoNumerico) && montoNumerico > 0
+          ? ''
+          : 'Ingresa un monto mayor a cero',
+      fecha: fechaValida ? '' : 'Selecciona una fecha válida',
+    };
+    setErroresEdicion(nextErrors);
+
+    if (nextErrors.monto || nextErrors.fecha || guardandoEdicion) return;
+
+    try {
+      setGuardandoEdicion(true);
+      const pagoActualizado = await calendarioPagoService.actualizar(pagoSeleccionado.id, {
+        monto: montoNumerico,
+        fecha: toDateKey(fechaValida),
+      });
+      setPagos((pagosActuales) =>
+        pagosActuales
+          .map((pago) => (pago.id === pagoActualizado.id ? pagoActualizado : pago))
+          .sort((a, b) => getPagoDateKey(a.fecha).localeCompare(getPagoDateKey(b.fecha)))
+      );
+      cerrarDetallePago();
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo actualizar el pago');
+    } finally {
+      setGuardandoEdicion(false);
+    }
   };
 
   const handleDeletePago = (pago: CalendarioPago) => {
@@ -483,6 +551,7 @@ export default function CalendarioScreen() {
               <PagoCard
                 key={pago.id}
                 pago={pago}
+                onPress={() => abrirDetallePago(pago)}
                 onToggle={(completed) => handleTogglePago(pago, completed)}
                 onDelete={() => handleDeletePago(pago)}
               />
@@ -664,6 +733,64 @@ export default function CalendarioScreen() {
           </View>
         </View>
       </CustomModal>
+
+      <CustomModal
+        visible={!!pagoSeleccionado}
+        title={editandoPago ? 'Editar pago' : 'Detalle del pago'}
+        onClose={cerrarDetallePago}
+        footer={
+          <View style={styles.modalFooter}>
+            {editandoPago ? (
+              <>
+                <Button title="Cancelar" onPress={cancelarEdicionPago} variant="secondary" />
+                <Button
+                  title="Guardar"
+                  onPress={guardarEdicionPago}
+                  variant="success"
+                  disabled={guardandoEdicion}
+                  loading={guardandoEdicion}
+                />
+              </>
+            ) : (
+              <>
+                <Button title="Cerrar" onPress={cerrarDetallePago} variant="secondary" />
+                <Button title="Editar" onPress={activarEdicionPago} variant="primary" />
+              </>
+            )}
+          </View>
+        }
+      >
+        <View>
+          {pagoSeleccionado && (
+            <Text style={styles.previewTitle}>{pagoSeleccionado.servicio}</Text>
+          )}
+          <Input
+            label="Monto"
+            placeholder="Ej: 12500,50"
+            value={montoEdicion}
+            editable={editandoPago}
+            onChangeText={(value) => {
+              setMontoEdicion(value);
+              if (erroresEdicion.monto) {
+                setErroresEdicion((errors) => ({ ...errors, monto: '' }));
+              }
+            }}
+            keyboardType="decimal-pad"
+            error={erroresEdicion.monto}
+          />
+          <DatePickerField
+            label="Fecha de pago"
+            value={fechaEdicion}
+            disabled={!editandoPago}
+            onChange={(value) => {
+              setFechaEdicion(value);
+              if (erroresEdicion.fecha) {
+                setErroresEdicion((errors) => ({ ...errors, fecha: '' }));
+              }
+            }}
+          />
+        </View>
+      </CustomModal>
     </View>
   );
 }
@@ -759,5 +886,3 @@ const styles = StyleSheet.create({
   previewTitle: { color: colors.dark, fontSize: 16, fontWeight: '800' },
   previewText: { color: colors.gray[600], fontSize: 13, lineHeight: 18, marginTop: 4 },
 });
-
-

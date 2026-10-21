@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { CalendarioPago } from '@models/index';
 
 export const calendarioPagoRepository = {
 
@@ -57,7 +58,7 @@ export const calendarioPagoRepository = {
 
  async update(
     id:string,
-    pago:any,
+    pago:Partial<Pick<CalendarioPago, 'fecha' | 'servicio' | 'monto' | 'pago'>>,
     userId: string
  ){
 

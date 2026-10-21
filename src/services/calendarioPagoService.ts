@@ -1,6 +1,7 @@
 import { calendarioPagoRepository }
 from '@repositories/calendarioPagoRepository';
 import { authRepository } from '@repositories/authRepository';
+import { CalendarioPago } from '@models/index';
 
 const getAuthenticatedUserId = async () => {
   const user = await authRepository.currentUser();
@@ -50,11 +51,10 @@ export const calendarioPagoService = {
 
  async actualizar(
    id:string,
-   data:any
+   data:Partial<Pick<CalendarioPago, 'fecha' | 'servicio' | 'monto' | 'pago'>>
  ){
 
-   const { created_by, ...pago } = data;
-   return calendarioPagoRepository.update(id, pago, await getAuthenticatedUserId());
+   return calendarioPagoRepository.update(id, data, await getAuthenticatedUserId());
 
  },
 
