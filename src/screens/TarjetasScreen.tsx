@@ -10,52 +10,50 @@ import {
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { SidebarMenuButton, StatCard } from '@components/index';
-import { tarjetaService } from '@services/tarjetaService';
-import { movimientoService } from '@services/movimientoService';
 import { colors, getMetodoColor } from '@utils/colors';
 import { formatDate, formatMoney } from '@utils/formatting';
-import { DatoTarjeta, Movimiento } from '@models/index';
+import { Movimiento } from '@models/index';
+import { useMovimientosQuery, useTarjetasPeriodoQuery } from '@queries/useServerQueries';
 
 const TARJETAS = ['VISA', 'AMEX', 'MERCADOPAGO'] as const;
 type Tarjeta = (typeof TARJETAS)[number];
 type VistaTarjetas = 'mes' | 'anio';
 
 export default function TarjetasScreen({ navigation }: any) {
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
-  const [datosTarjeta, setDatosTarjeta] = useState<DatoTarjeta[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [vistaSeleccionada, setVistaSeleccionada] = useState<VistaTarjetas>('mes');
   const [tarjetaAnualSeleccionada, setTarjetaAnualSeleccionada] = useState<Tarjeta>('VISA');
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
-
-  const loadData = async () => {
-    try {
-      const [movimientosData, tarjetasData] = await Promise.all([
-        movimientoService.listar(),
-        tarjetaService.listarPorPeriodo(
-          mesSeleccionado.getFullYear(),
-          mesSeleccionado.getMonth() + 1
-        ),
-      ]);
-      setMovimientos(movimientosData);
-      setDatosTarjeta(tarjetasData);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los datos de tarjetas');
-    }
-  };
+  const movimientosQuery = useMovimientosQuery();
+  const tarjetasQuery = useTarjetasPeriodoQuery(
+    mesSeleccionado.getFullYear(),
+    mesSeleccionado.getMonth() + 1
+  );
+  const movimientos = movimientosQuery.data ?? [];
+  const datosTarjeta = tarjetasQuery.data ?? [];
 
   useFocusEffect(
     useCallback(() => {
-      void loadData();
-    }, [mesSeleccionado])
+      void movimientosQuery.refetch();
+      void tarjetasQuery.refetch();
+    }, [movimientosQuery.refetch, tarjetasQuery.refetch])
   );
+
+  React.useEffect(() => {
+    if (movimientosQuery.isError || tarjetasQuery.isError) {
+      Alert.alert('Error', 'No se pudieron cargar los datos de tarjetas');
+    }
+  }, [movimientosQuery.error, tarjetasQuery.error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await Promise.all([movimientosQuery.refetch(), tarjetasQuery.refetch()]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const cambiarMes = (desplazamiento: number) => {

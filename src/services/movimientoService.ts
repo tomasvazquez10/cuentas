@@ -1,6 +1,11 @@
 import { movimientoRepository } 
 from '@repositories/movimientoRepository';
 import { authRepository } from '@repositories/authRepository';
+import { MovimientoInput, Movimiento } from '@models/index';
+import {
+  movimientoInputSchema,
+  movimientoUpdateSchema,
+} from '@schemas/financialSchemas';
 
 const getAuthenticatedUserId = async () => {
   const user = await authRepository.currentUser();
@@ -18,22 +23,11 @@ export const movimientoService = {
  },
 
 
- async crear(data:any){
-
-   if(!data.fecha)
-      throw new Error('Fecha requerida');
-
-
-   if(!data.concepto)
-      throw new Error('Concepto requerido');
-
-
-   if(!data.monto)
-      throw new Error('Monto requerido');
-
+ async crear(data:MovimientoInput){
+   const movimiento = movimientoInputSchema.parse(data);
 
    return movimientoRepository.create({
-     ...data,
+     ...movimiento,
      created_by: await getAuthenticatedUserId(),
    });
 
@@ -42,11 +36,10 @@ export const movimientoService = {
 
  async actualizar(
     id:string,
-    data:any
+    data:Partial<MovimientoInput>
  ){
-
-   const { created_by, ...movimiento } = data;
-   return movimientoRepository.update(id, movimiento, await getAuthenticatedUserId());
+   const updates = movimientoUpdateSchema.parse(data);
+   return movimientoRepository.update(id, updates, await getAuthenticatedUserId());
 
  },
 

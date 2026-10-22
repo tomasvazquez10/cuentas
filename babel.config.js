@@ -15,6 +15,9 @@ module.exports = function (api) {
             '@screens': './src/screens',
             '@services': './src/services',
             '@repositories': './src/repositories',
+            '@queries': './src/queries',
+            '@lib': './src/lib',
+            '@schemas': './src/schemas',
             '@utils': './src/utils',
             '@models': './src/types',
             '@navigators': './src/navigators'

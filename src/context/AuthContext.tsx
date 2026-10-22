@@ -2,20 +2,16 @@ import React, {
   createContext,
   useContext,
   useState,
-  useEffect
+  useEffect,
+  useRef,
 } from 'react';
-
-import { Perfil } from '@models/index';
-
 import { authService } from '@services/authService';
+import { queryClient } from '@lib/queryClient';
 
 
 interface AuthContextType {
-
-  user: Perfil | null;
-
+  userId: string | null;
   isLoading: boolean;
-
   isSignedIn: boolean;
 
 
@@ -52,12 +48,14 @@ export const AuthProvider = ({
 })=>{
 
 
-const [user,setUser]=
-useState<Perfil|null>(null);
+const [userId,setUserId]=
+useState<string|null>(null);
 
 
 const [isLoading,setIsLoading]=
 useState(true);
+
+const currentUserId = useRef<string | null>(null);
 
 
 
@@ -71,19 +69,9 @@ const loadSession = async()=>{
 
  try{
 
-  const authUser =
-  await authService.getCurrentUser();
-
-  if(authUser){
-
-  const perfil =
-  await authService.getProfile(
-    authUser.id
-  );
-
-  setUser(perfil);
-
-}
+  const authUser = await authService.getCurrentUser();
+  currentUserId.current = authUser?.id ?? null;
+  setUserId(currentUserId.current);
 
 
  }
@@ -113,27 +101,14 @@ const {
  data:{
    subscription
  }
-}=authService.onAuthStateChanged(
- async(authUser)=>{
-
-
-   if(authUser){
-
-     const perfil =
-       await authService.getProfile(
-          authUser.id
-       );
-
-
-     setUser(perfil);
-
-
-   }else{
-
-     setUser(null);
-
+} = authService.onAuthStateChanged(
+ (authUser) => {
+   const nextUserId = authUser?.id ?? null;
+   if (currentUserId.current && currentUserId.current !== nextUserId) {
+     queryClient.clear();
    }
-
+   currentUserId.current = nextUserId;
+   setUserId(nextUserId);
  }
 );
 
@@ -169,18 +144,8 @@ await authService.signIn(
 const authUser =
 await authService.getCurrentUser();
 
-
-if(authUser){
-
-  const perfil =
-    await authService.getProfile(
-      authUser.id
-    );
-
-
-  setUser(perfil);
-
-}
+currentUserId.current = authUser?.id ?? null;
+setUserId(currentUserId.current);
 }
 finally{
 
@@ -243,7 +208,9 @@ try{
 
  await authService.signOut();
 
- setUser(null);
+  queryClient.clear();
+  currentUserId.current = null;
+  setUserId(null);
 
 
 }
@@ -266,12 +233,9 @@ return (
 
 <AuthContext.Provider
  value={{
-
-  user,
-
-  isLoading,
-
-  isSignedIn:!!user,
+   userId,
+   isLoading,
+   isSignedIn:!!userId,
 
 
   signIn,

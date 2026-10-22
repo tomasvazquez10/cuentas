@@ -1,6 +1,7 @@
 import { authRepository } from '@repositories/authRepository';
 import { perfilRepository } from '@repositories/perfilRepository';
 import { User } from '@supabase/supabase-js';
+import { signInSchema, signUpInputSchema } from '@schemas/authSchemas';
 
 
 export const authService = {
@@ -11,10 +12,8 @@ export const authService = {
     password:string
   ){
 
-    return await authRepository.login(
-      email,
-      password
-    );
+    const credentials = signInSchema.parse({ email, password });
+    return authRepository.login(credentials.email, credentials.password);
 
   },
 
@@ -24,24 +23,12 @@ export const authService = {
     nombre?:string
   ){
 
-    if(!email || !password){
-      throw new Error(
-        'Email y contraseña son obligatorios'
-      );
-    }
-
-
-    if(password.length < 6){
-      throw new Error(
-        'La contraseña debe tener al menos 6 caracteres'
-      );
-    }
-
+    const input = signUpInputSchema.parse({ email, password, nombre });
 
     const user =
       await authRepository.register(
-        email.trim(),
-        password
+        input.email,
+        input.password
       );
 
     if(user){
@@ -51,10 +38,10 @@ export const authService = {
         id:user.id,
 
         nombre:
-          nombre ?? '',
+          input.nombre,
 
         email:
-          email.trim()
+          input.email
 
       });
 

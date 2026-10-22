@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,15 +11,27 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { Button, Input, CustomModal, SidebarMenuButton } from '@components/index';
-import { Grupo } from '@models/index';
 import { grupoService } from '@services/grupoService';
-import { gastoCompartidoService } from '@services/gastoCompartidoService';
 import { formatMoney } from '@utils/formatting';
+import { useGruposConBalanceQuery } from '@queries/useServerQueries';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@queries/queryKeys';
+import { useAuth } from '@context/AuthContext';
+import { crearGrupoSchema } from '@schemas/groupSchemas';
 
 export default function GruposScreen({ navigation }: any) {
-  const [grupos, setGrupos] = useState<Grupo[]>([]);
-  const [balancesGrupos, setBalancesGrupos] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(false);
+  const gruposQuery = useGruposConBalanceQuery();
+  const gruposConBalances = gruposQuery.data ?? [];
+  const grupos = gruposConBalances.map(({ grupo }) => grupo);
+  const balancesGrupos = gruposConBalances.reduce<Record<string, number>>(
+    (balances, { grupo, balance }) => {
+      balances[grupo.id] = balance;
+      return balances;
+    },
+    {}
+  );
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
 
   // Modal para Crear Grupo
@@ -27,57 +39,53 @@ export default function GruposScreen({ navigation }: any) {
   const [nombreGrupo, setNombreGrupo] = useState('');
   const [descripcionGrupo, setDescripcionGrupo] = useState('');
 
-  const loadGruposConBalances = async () => {
-    try {
-      setLoading(true);
-      const listaGrupos = await grupoService.obtenerGruposDelUsuario();
-      setGrupos(listaGrupos);
-
-      // Calcular el balance de cada grupo en paralelo
-      const balancesTemp: Record<string, number> = {};
-      await Promise.all(
-        listaGrupos.map(async (grupo) => {
-          try {
-            const gastos = await gastoCompartidoService.obtenerGastosDeGrupo(grupo.id);
-            const total = gastos.reduce((acc: number, g: any) => acc + (g.movimientos?.monto || 0), 0);
-            balancesTemp[grupo.id] = total;
-          } catch {
-            balancesTemp[grupo.id] = 0;
-          }
-        })
-      );
-      setBalancesGrupos(balancesTemp);
-    } catch (error: any) {
-      Alert.alert('Error', error?.message || 'No se pudieron cargar los grupos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const crearGrupoMutation = useMutation({
+    mutationFn: ({ nombre, descripcion }: { nombre: string; descripcion: string }) =>
+      grupoService.crearGrupo(nombre, descripcion),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.grupos(userId) }),
+  });
 
   useFocusEffect(
     useCallback(() => {
-      loadGruposConBalances();
-    }, [])
+      void gruposQuery.refetch();
+    }, [gruposQuery.refetch])
   );
+
+  useEffect(() => {
+    if (gruposQuery.isError) {
+      const error = gruposQuery.error;
+      Alert.alert('Error', error?.message || 'No se pudieron cargar los grupos');
+    }
+  }, [gruposQuery.error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadGruposConBalances();
-    setRefreshing(false);
+    try {
+      await gruposQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleCreateGrupo = async () => {
-    if (!nombreGrupo.trim()) {
-      Alert.alert('Error', 'El nombre del grupo es obligatorio');
+    const validation = crearGrupoSchema.safeParse({
+      nombre: nombreGrupo,
+      descripcion: descripcionGrupo,
+    });
+    if (!validation.success) {
+      Alert.alert('Error', validation.error.issues[0]?.message || 'Revisa los datos del grupo');
       return;
     }
 
     try {
-      const nuevoGrupo = await grupoService.crearGrupo(nombreGrupo, descripcionGrupo);
+      const nuevoGrupo = await crearGrupoMutation.mutateAsync({
+        nombre: validation.data.nombre,
+        descripcion: validation.data.descripcion ?? '',
+      });
       setModalGrupoVisible(false);
       setNombreGrupo('');
       setDescripcionGrupo('');
-      await loadGruposConBalances();
       Alert.alert('Éxito', 'Grupo creado correctamente');
       
       // Opcional: Navegar directamente al detalle del grupo recién creado
@@ -104,7 +112,11 @@ export default function GruposScreen({ navigation }: any) {
         </View>
 
         <View style={styles.listContainer}>
-          {grupos.length === 0 ? (
+          {gruposQuery.isLoading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>Cargando grupos...</Text>
+            </View>
+          ) : grupos.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No perteneces a ningún grupo todavía.</Text>
               <TouchableOpacity

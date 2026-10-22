@@ -11,6 +11,8 @@ import {
 import { colors } from '@utils/colors';
 import { authService } from '@services/authService';
 import { Button, Input } from '@components/index';
+import { signInSchema, signUpFormSchema } from '@schemas/authSchemas';
+import { getFormErrors } from '@schemas/common';
 
 type AuthMode = 'login' | 'signup';
 
@@ -23,37 +25,16 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!email) newErrors.email = 'El email es requerido';
-    else if (!validateEmail(email)) newErrors.email = 'Email inválido';
-
-    if (!password) newErrors.password = 'La contraseña es requerida';
-    else if (password.length < 6) newErrors.password = 'Mínimo 6 caracteres';
-
-    if (mode === 'signup') {
-      if (!nombre) newErrors.nombre = 'El nombre es requerido';
-      if (!confirmPassword) newErrors.confirmPassword = 'Confirma tu contraseña';
-      else if (password !== confirmPassword)
-        newErrors.confirmPassword = 'Las contraseñas no coinciden';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleLogin = async () => {
-    if (!validateForm()) return;
+    const validation = signInSchema.safeParse({ email, password });
+    if (!validation.success) {
+      setErrors(getFormErrors(validation.error));
+      return;
+    }
 
     setLoading(true);
     try {
-      await authService.signIn(email, password);
+      await authService.signIn(validation.data.email, validation.data.password);
       Alert.alert('Éxito', 'Inicio de sesión exitoso');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al iniciar sesión');
@@ -63,11 +44,24 @@ export default function AuthScreen() {
   };
 
   const handleSignUp = async () => {
-    if (!validateForm()) return;
+    const validation = signUpFormSchema.safeParse({
+      email,
+      password,
+      nombre,
+      confirmPassword,
+    });
+    if (!validation.success) {
+      setErrors(getFormErrors(validation.error));
+      return;
+    }
 
     setLoading(true);
     try {
-      await authService.signUp(email, password, nombre);
+      await authService.signUp(
+        validation.data.email,
+        validation.data.password,
+        validation.data.nombre
+      );
       Alert.alert(
         'Éxito',
         'Cuenta creada. Por favor verifica tu email antes de iniciar sesión'

@@ -25,7 +25,12 @@ import {
   DropdownOption,
   SidebarMenuButton,
 } from '@components/index';
-import { Movimiento, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
+import { Movimiento, MovimientoInput, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
+import { useMovimientosQuery } from '@queries/useServerQueries';
+import { queryKeys } from '@queries/queryKeys';
+import { useAuth } from '@context/AuthContext';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { movimientoFormSchema } from '@schemas/financialSchemas';
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
   ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
@@ -46,29 +51,11 @@ const CUOTAS_OPTIONS: DropdownOption<string>[] = [
 ];
 type MovimientoModalMode = 'create' | 'detail' | 'edit';
 
-const getCuotasData = (cuotaActual: string, totalCuotas: string) => {
-  const cuotaText = cuotaActual.trim();
-  const totalText = totalCuotas.trim();
-  const hasCuotas = !!cuotaText || !!totalText;
-
-  if (!hasCuotas) {
-    return { hasCuotas: false, cuota: 0, total: 0, isValid: true };
-  }
-
-  const cuota = Number(cuotaText);
-  const total = Number(totalText);
-  const isValid =
-    Number.isInteger(cuota) &&
-    Number.isInteger(total) &&
-    cuota >= 1 &&
-    total >= cuota;
-
-  return { hasCuotas, cuota, total, isValid };
-};
-
 export default function MovimientosScreen({ navigation, route }: any) {
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
-  const [loading, setLoading] = useState(false);
+  const movimientosQuery = useMovimientosQuery();
+  const movimientos = movimientosQuery.data ?? [];
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [movimientoModalMode, setMovimientoModalMode] = useState<MovimientoModalMode>('create');
@@ -106,28 +93,42 @@ export default function MovimientosScreen({ navigation, route }: any) {
   const [busqueda, setBusqueda] = useState('');
   const [filtrosVisibles, setFiltrosVisibles] = useState(false);
 
-  const loadMovimientos = async () => {
-    try {
-      setLoading(true);
-      const data = await movimientoService.listar();
-      setMovimientos(data);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los movimientos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const invalidarMovimientos = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.movimientos(userId) });
+
+  const crearMovimientoMutation = useMutation({
+    mutationFn: (data: MovimientoInput) => movimientoService.crear(data),
+    onSuccess: invalidarMovimientos,
+  });
+  const actualizarMovimientoMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<MovimientoInput> }) =>
+      movimientoService.actualizar(id, data),
+    onSuccess: invalidarMovimientos,
+  });
+  const eliminarMovimientoMutation = useMutation({
+    mutationFn: (id: string) => movimientoService.eliminar(id),
+    onSuccess: invalidarMovimientos,
+  });
 
   useFocusEffect(
     useCallback(() => {
-      loadMovimientos();
-    }, [])
+      void movimientosQuery.refetch();
+    }, [movimientosQuery.refetch])
   );
+
+  useEffect(() => {
+    if (movimientosQuery.isError) {
+      Alert.alert('Error', 'No se pudieron cargar los movimientos');
+    }
+  }, [movimientosQuery.error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadMovimientos();
-    setRefreshing(false);
+    try {
+      await movimientosQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const resetForm = () => {
@@ -353,14 +354,13 @@ export default function MovimientosScreen({ navigation, route }: any) {
             0
           ).getDate();
           const fecha = `${fechaCuota.getFullYear()}-${String(fechaCuota.getMonth() + 1).padStart(2, '0')}-${String(Math.min(dia, ultimoDia)).padStart(2, '0')}`;
-          return movimientoService.crear({
+          return crearMovimientoMutation.mutateAsync({
             ...datosBase,
             fecha,
             cuota_actual: cuotaInicial + indice + 1,
           });
         })
       );
-      setMovimientos((movimientosActuales) => [...movimientosActuales, ...cuotas]);
       Alert.alert('Exito', 'Se crearon las cuotas restantes');
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudieron crear las cuotas restantes');
@@ -372,8 +372,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
 
     const { datosMovimiento, cuota, total } = cuotasPendientes;
     try {
-      const nuevoMovimiento = await movimientoService.crear(datosMovimiento);
-      setMovimientos((movimientosActuales) => [nuevoMovimiento, ...movimientosActuales]);
+      await crearMovimientoMutation.mutateAsync(datosMovimiento);
       cerrarModal();
       if (crearSiguientes) {
         await crearCuotasSiguientes(datosMovimiento, cuota, total);
@@ -392,8 +391,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     if (!pendiente) return;
     const { datosMovimiento, cuota, total } = pendiente;
     try {
-      const nuevoMovimiento = await movimientoService.crear(datosMovimiento);
-      setMovimientos((movimientosActuales) => [nuevoMovimiento, ...movimientosActuales]);
+      await crearMovimientoMutation.mutateAsync(datosMovimiento);
       cerrarModal();
       if (crearSiguientes) {
         await crearCuotasSiguientes(datosMovimiento, cuota, total);
@@ -406,16 +404,30 @@ export default function MovimientosScreen({ navigation, route }: any) {
   };
 
   const handleCreateMovimiento = async () => {
-    if (!concepto || !monto) {
+    if (!concepto.trim() || !monto.trim()) {
       Alert.alert('Error', 'Completa los campos requeridos');
       return;
     }
 
-    const { hasCuotas, cuota, total, isValid } = getCuotasData(cuotaActual, totalCuotas);
-    if (!isValid) {
-      Alert.alert('Error', 'Indica una cuota valida, por ejemplo 1 de 6');
+    const validation = movimientoFormSchema.safeParse({
+      fecha,
+      tipo,
+      subtipo,
+      concepto,
+      metodo,
+      monto,
+      nota,
+      cuotaActual,
+      totalCuotas,
+    });
+    if (!validation.success) {
+      Alert.alert('Error', validation.error.issues[0]?.message || 'Revisa los datos del movimiento');
       return;
     }
+    const movimiento = validation.data;
+    const hasCuotas = movimiento.cuota_actual !== undefined;
+    const cuota = movimiento.cuota_actual ?? 0;
+    const total = movimiento.total_cuotas ?? 0;
     const nuevaCompraId = hasCuotas
       ? 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (caracter) => {
           const aleatorio = Math.floor(Math.random() * 16);
@@ -423,11 +435,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
         })
       : undefined;
     const datosMovimiento = {
-      fecha, tipo, subtipo, concepto, metodo,
-      monto: parseFloat(monto),
-      nota: nota || undefined,
-      cuota_actual: hasCuotas ? cuota : undefined,
-      total_cuotas: hasCuotas ? total : undefined,
+      ...movimiento,
       compra_id: nuevaCompraId,
     };
 
@@ -437,8 +445,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     }
 
     try {
-      const nuevoMovimiento = await movimientoService.crear(datosMovimiento);
-      setMovimientos([nuevoMovimiento, ...movimientos]);
+      await crearMovimientoMutation.mutateAsync(datosMovimiento);
       if (hasCuotas && total > cuota) {
         resetForm();
         setModalVisible(false);
@@ -464,38 +471,38 @@ export default function MovimientosScreen({ navigation, route }: any) {
   };
 
   const handleUpdateMovimiento = async () => {
-    if (!movimientoSeleccionado || !concepto || !monto) {
+    if (!movimientoSeleccionado) return;
+    if (!concepto.trim() || !monto.trim()) {
       Alert.alert('Error', 'Completa los campos requeridos');
       return;
     }
 
-    const { hasCuotas, cuota, total, isValid } = getCuotasData(cuotaActual, totalCuotas);
-    if (!isValid) {
-      Alert.alert('Error', 'Indica una cuota valida, por ejemplo 1 de 6');
+    const validation = movimientoFormSchema.safeParse({
+      fecha,
+      tipo,
+      subtipo,
+      concepto,
+      metodo,
+      monto,
+      nota,
+      cuotaActual,
+      totalCuotas,
+    });
+    if (!validation.success) {
+      Alert.alert('Error', validation.error.issues[0]?.message || 'Revisa los datos del movimiento');
       return;
     }
+    const movimiento = validation.data;
+    const hasCuotas = movimiento.cuota_actual !== undefined;
 
     try {
-      const movimientoActualizado = await movimientoService.actualizar(
-        movimientoSeleccionado.id,
-        {
-          fecha,
-          tipo,
-          subtipo,
-          concepto,
-          metodo,
-          monto: parseFloat(monto),
-          nota: nota || undefined,
-          cuota_actual: hasCuotas ? cuota : undefined,
-          total_cuotas: hasCuotas ? total : undefined,
+      await actualizarMovimientoMutation.mutateAsync({
+        id: movimientoSeleccionado.id,
+        data: {
+          ...movimiento,
           compra_id: hasCuotas ? compraId : undefined,
         }
-      );
-      setMovimientos(
-        movimientos.map((movimiento) =>
-          movimiento.id === movimientoActualizado.id ? movimientoActualizado : movimiento
-        )
-      );
+      });
       cerrarModal();
       Alert.alert('Exito', 'Movimiento actualizado correctamente');
     } catch (error) {
@@ -510,8 +517,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
         text: 'Eliminar',
         onPress: async () => {
           try {
-            await movimientoService.eliminar(id);
-            setMovimientos(movimientos.filter((m) => m.id !== id));
+            await eliminarMovimientoMutation.mutateAsync(id);
             if (movimientoSeleccionado?.id === id) {
               cerrarModal();
             }
@@ -530,10 +536,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
 
     const id = movimientoSeleccionado.id;
     try {
-      await movimientoService.eliminar(id);
-      setMovimientos((movimientosActuales) =>
-        movimientosActuales.filter((movimiento) => movimiento.id !== id)
-      );
+      await eliminarMovimientoMutation.mutateAsync(id);
       cerrarModal();
       Alert.alert('Exito', 'Movimiento eliminado');
     } catch (error: any) {
@@ -1256,5 +1259,3 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-
-

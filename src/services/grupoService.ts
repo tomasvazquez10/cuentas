@@ -2,6 +2,7 @@ import { grupoRepository } from '../repositories/grupoRepository';
 import { miembroGrupoRepository } from '../repositories/miembroGrupoRepository';
 import { authRepository } from '../repositories/authRepository'; // 👈 Importamos tu authRepository
 import { Grupo } from '../types';
+import { actualizarGrupoSchema, crearGrupoSchema } from '@schemas/groupSchemas';
 
 // Helper interno siguiendo tu patrón
 const getAuthenticatedUserId = async () => {
@@ -29,14 +30,14 @@ export const grupoService = {
     nombre: string,
     descripcion: string | null
   ): Promise<Grupo> {
-    if (!nombre.trim()) throw new Error('El nombre del grupo es obligatorio');
+    const input = crearGrupoSchema.parse({ nombre, descripcion });
 
     const userId = await getAuthenticatedUserId();
 
     // 1. Crear el grupo asignando el 'creado_por' con el usuario autenticado
     const nuevoGrupo = await grupoRepository.create({
-      nombre,
-      descripcion,
+      nombre: input.nombre,
+      descripcion: input.descripcion,
       creado_por: userId,
     });
 
@@ -54,6 +55,7 @@ export const grupoService = {
     id: string,
     datosActualizados: Partial<Omit<Grupo, 'id' | 'created_at' | 'creado_por'>>
   ): Promise<Grupo> {
+    const validatedUpdates = actualizarGrupoSchema.parse(datosActualizados);
     const userId = await getAuthenticatedUserId();
     const grupo = await grupoRepository.findById(id);
 
@@ -61,7 +63,7 @@ export const grupoService = {
       throw new Error('No tienes permisos para modificar este grupo');
     }
 
-    return await grupoRepository.update(id, datosActualizados);
+    return await grupoRepository.update(id, validatedUpdates);
   },
 
   async eliminarGrupo(id: string): Promise<void> {

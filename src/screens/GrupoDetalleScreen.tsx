@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,19 @@ import {
   DropdownField,
   DropdownOption,
 } from '@components/index';
-import { Grupo, GastoCompartido, MiembroGrupo, TipoDivision, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
-import { grupoService } from '@services/grupoService';
-import { miembroGrupoService } from '@services/miembroGrupoService';
+import {
+  MiembroGrupo,
+  TipoDivision,
+  TipoMovimiento,
+  SubtipoMovimiento,
+  MetodoMovimiento,
+} from '@models/index';
 import { gastoCompartidoService } from '@services/gastoCompartidoService';
-import { authService } from '@services/authService';
+import { useGrupoDetalleQuery } from '@queries/useServerQueries';
+import { useAuth } from '@context/AuthContext';
+import { queryKeys } from '@queries/queryKeys';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { gastoCompartidoFormSchema } from '@schemas/groupSchemas';
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
   ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
@@ -38,14 +46,14 @@ const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
 
 export default function GrupoDetalleScreen({ navigation, route }: any) {
   const { grupoId, grupoNombre } = route.params || {};
-
-  const [grupo, setGrupo] = useState<Grupo | null>(null);
-  const [gastos, setGastos] = useState<GastoCompartido[]>([]);
-  const [miembros, setMiembros] = useState<MiembroGrupo[]>([]);
-  const [loading, setLoading] = useState(false);
+  const grupoDetalleQuery = useGrupoDetalleQuery(grupoId);
+  const grupo = grupoDetalleQuery.data?.grupo ?? null;
+  const miembros = grupoDetalleQuery.data?.miembros ?? [];
+  const gastos = grupoDetalleQuery.data?.gastos ?? [];
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [miembrosExpanded, setMiembrosExpanded] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState('');
 
   // Estados del Modal para Nuevo Gasto Compartido
   const [modalVisible, setModalVisible] = useState(false);
@@ -62,35 +70,45 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
   // Diálogo de confirmación para eliminar gasto
   const [gastoAEliminar, setGastoAEliminar] = useState<string | null>(null);
 
-  const loadData = async () => {
-    if (!grupoId) return;
-    try {
-      setLoading(true);
-      const [grupoData, miembrosData, gastosData] = await Promise.all([
-        grupoService.obtenerGrupoPorId(grupoId),
-        miembroGrupoService.obtenerMiembros(grupoId),
-        gastoCompartidoService.obtenerGastosDeGrupo(grupoId),
-      ]);
-      setGrupo(grupoData);
-      setMiembros(miembrosData);
-      setGastos(gastosData);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo cargar la información del grupo');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const invalidarDatosGrupo = () =>
+    Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.grupoDetalle(userId, grupoId),
+      }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.grupos(userId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.movimientos(userId) }),
+    ]);
+
+  const crearGastoMutation = useMutation({
+    mutationFn: (dto: Parameters<typeof gastoCompartidoService.crearGastoCompartido>[0]) =>
+      gastoCompartidoService.crearGastoCompartido(dto),
+    onSuccess: invalidarDatosGrupo,
+  });
+
+  const eliminarGastoMutation = useMutation({
+    mutationFn: (id: string) => gastoCompartidoService.eliminarGastoCompartido(id),
+    onSuccess: invalidarDatosGrupo,
+  });
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [grupoId])
+      void grupoDetalleQuery.refetch();
+    }, [grupoDetalleQuery.refetch])
   );
+
+  useEffect(() => {
+    if (grupoDetalleQuery.isError) {
+      Alert.alert('Error', 'No se pudo cargar la información del grupo');
+    }
+  }, [grupoDetalleQuery.error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await grupoDetalleQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getMiembroNombre = (miembro: MiembroGrupo) =>
@@ -128,12 +146,12 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
     setSubtipo(SUBTIPOS_POR_TIPO[nuevoTipo][0]);
   };
 
-  const getDefaultPayerId = (userId = currentUserId) => {
-    const currentMember = miembros.find((m) => m.usuario_id === userId);
-    return currentMember?.usuario_id || miembros[0]?.usuario_id || userId || '';
+  const getDefaultPayerId = (defaultUserId = userId ?? '') => {
+    const currentMember = miembros.find((m) => m.usuario_id === defaultUserId);
+    return currentMember?.usuario_id || miembros[0]?.usuario_id || defaultUserId || '';
   };
 
-  const resetForm = (userId = currentUserId) => {
+  const resetForm = (defaultUserId = userId ?? '') => {
     setConcepto('');
     setMonto('');
     setTipoMovimiento('GASTO');
@@ -141,15 +159,12 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
     setSubtipo('SALIDAS');
     setMetodo('EFECTIVO');
     setFecha(new Date().toISOString().split('T')[0]);
-    setPagadoPorUsuarioId(getDefaultPayerId(userId));
+    setPagadoPorUsuarioId(getDefaultPayerId(defaultUserId));
     setParticipantesSeleccionados(miembros.map((m) => m.usuario_id));
   };
 
-  const abrirModalNuevoGasto = async () => {
-    const authUser = await authService.getCurrentUser();
-    const userId = authUser?.id || '';
-    setCurrentUserId(userId);
-    resetForm(userId);
+  const abrirModalNuevoGasto = () => {
+    resetForm(userId ?? '');
     setModalVisible(true);
   };
 
@@ -169,36 +184,41 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
   };
 
   const handleCreateGastoCompartido = async () => {
-    if (!concepto || !monto) {
-      Alert.alert('Error', 'Completa los campos requeridos (Concepto y Monto)');
-      return;
-    }
-
-    const montoNumerico = parseFloat(monto);
-    if (isNaN(montoNumerico) || montoNumerico <= 0) {
-      Alert.alert('Error', 'Indica un monto válido');
-      return;
-    }
-
-    if (miembros.length === 0) {
-      Alert.alert('Error', 'El grupo no tiene miembros para dividir el gasto');
-      return;
-    }
-
-    if (!pagadoPorUsuarioId) {
-      Alert.alert('Error', 'Selecciona quien pago el gasto');
-      return;
-    }
-
-    if (participantesSeleccionados.length === 0) {
-      Alert.alert('Error', 'Selecciona a quien le corresponde el gasto');
+    const validation = gastoCompartidoFormSchema.safeParse({
+      fecha,
+      tipoMovimiento,
+      subtipo,
+      metodo,
+      concepto,
+      monto,
+      tipoDivision,
+      pagadoPorUsuarioId,
+      participantesSeleccionados,
+      miembrosDisponibles: miembros.map((miembro) => miembro.usuario_id),
+    });
+    if (!validation.success) {
+      Alert.alert(
+        'Error',
+        validation.error.issues[0]?.message || 'Revisa los datos del gasto compartido'
+      );
       return;
     }
 
     try {
+      const {
+        fecha: fechaValidada,
+        tipoMovimiento: tipoValidado,
+        subtipo: subtipoValidado,
+        metodo: metodoValidado,
+        concepto: conceptoValidado,
+        monto: montoNumerico,
+        tipoDivision: divisionValidada,
+        pagadoPorUsuarioId: pagadorValidado,
+        participantesSeleccionados: participantesValidados,
+      } = validation.data;
       // Lógica de división igualitaria por defecto
-      const montoPorPersona = Number((montoNumerico / participantesSeleccionados.length).toFixed(2));
-      const participantesPayload = participantesSeleccionados.map((usuarioId) => ({
+      const montoPorPersona = Number((montoNumerico / participantesValidados.length).toFixed(2));
+      const participantesPayload = participantesValidados.map((usuarioId) => ({
         usuarioId,
         montoCorrespondiente: montoPorPersona,
       }));
@@ -211,23 +231,22 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
           (participantesPayload[0].montoCorrespondiente + diferenciaRedondeo).toFixed(2)
         );
       }
-      await gastoCompartidoService.crearGastoCompartido({
+      await crearGastoMutation.mutateAsync({
         movimiento: {
-          fecha,
-          tipo: tipoMovimiento,
-          subtipo,
-          concepto,
-          metodo,
+          fecha: fechaValidada,
+          tipo: tipoValidado,
+          subtipo: subtipoValidado,
+          concepto: conceptoValidado,
+          metodo: metodoValidado,
           monto: montoNumerico,
         },
         grupoId,
-        tipoDivision,
-        pagadoPorUsuarioId,
+        tipoDivision: divisionValidada,
+        pagadoPorUsuarioId: pagadorValidado,
         participantes: participantesPayload,
       });
 
       cerrarModal();
-      await loadData();
       Alert.alert('Éxito', 'Gasto compartido creado y dividido correctamente');
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo crear el gasto compartido');
@@ -236,15 +255,17 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
 
   const handleDeleteGasto = async (id: string) => {
     try {
-      await gastoCompartidoService.eliminarGastoCompartido(id);
-      setGastos((prev) => prev.filter((g) => g.id !== id));
+      await eliminarGastoMutation.mutateAsync(id);
       Alert.alert('Éxito', 'Gasto compartido eliminado');
     } catch (error) {
       Alert.alert('Error', 'No se pudo eliminar el gasto');
     }
   };
 
-  const totalGastosGrupo = gastos.reduce((acc, g: any) => acc + (g.movimientos?.monto || 0), 0);
+  const totalGastosGrupo = gastos.reduce(
+    (acc, gasto) => acc + (gasto.movimientos?.monto ?? 0),
+    0
+  );
 
   return (
     <View style={styles.container}>
@@ -406,7 +427,7 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
                   </View>
                   <View style={styles.memberOptionContent}>
                     <Text style={styles.memberOptionName}>{getMiembroNombre(m)}</Text>
-                    <Text style={styles.memberOptionMeta}>{m.usuario_id === currentUserId ? 'Usuario actual' : m.rol}</Text>
+                    <Text style={styles.memberOptionMeta}>{m.usuario_id === userId ? 'Usuario actual' : m.rol}</Text>
                   </View>
                 </TouchableOpacity>
               );

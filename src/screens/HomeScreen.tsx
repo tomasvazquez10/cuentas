@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,37 +11,39 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, getMetodoColor } from '@utils/colors';
-import { movimientoService } from '@services/movimientoService';
 import { SidebarMenuButton, StatCard } from '@components/index';
 import { Movimiento, MetodoMovimiento } from '@models/index';
+import { useMovimientosQuery } from '@queries/useServerQueries';
 
 const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
 
 export default function HomeScreen({ navigation }: any) {
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const movimientosQuery = useMovimientosQuery();
+  const movimientos = movimientosQuery.data ?? [];
   const [refreshing, setRefreshing] = useState(false);
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   );
 
-  const loadData = async () => {
-    try {
-      setMovimientos(await movimientoService.listar());
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los balances');
-    }
-  };
-
   useFocusEffect(
     useCallback(() => {
-      loadData();
-    }, [])
+      void movimientosQuery.refetch();
+    }, [movimientosQuery.refetch])
   );
+
+  useEffect(() => {
+    if (movimientosQuery.isError) {
+      Alert.alert('Error', 'No se pudieron cargar los balances');
+    }
+  }, [movimientosQuery.error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
-    setRefreshing(false);
+    try {
+      await movimientosQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const calcularBalance = (items: Movimiento[]) =>

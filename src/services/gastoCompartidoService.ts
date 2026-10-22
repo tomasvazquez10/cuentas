@@ -2,33 +2,17 @@ import { gastoCompartidoRepository } from '../repositories/gastoCompartidoReposi
 import { participanteGastoRepository } from '../repositories/participanteGastoRepository';
 import { movimientoRepository } from '../repositories/movimientoRepository';
 import { authRepository } from '../repositories/authRepository'; // 👈 Importar authRepository
-import { GastoCompartido, TipoDivision } from '../types';
+import { GastoCompartido } from '../types';
+import {
+  CrearGastoCompartidoDTO,
+  gastoCompartidoDtoSchema,
+} from '@schemas/groupSchemas';
 
 const getAuthenticatedUserId = async () => {
   const user = await authRepository.currentUser();
   if (!user) throw new Error('Debes iniciar sesión para realizar esta acción');
   return user.id;
 };
-
-interface CrearGastoCompartidoDTO {
-  movimiento: {
-    fecha: string;
-    tipo: any;
-    subtipo: any;
-    concepto: string;
-    metodo: any;
-    monto: number;
-    nota?: string;
-  };
-  grupoId: string;
-  tipoDivision: TipoDivision;
-  pagadoPorUsuarioId?: string;
-  participantes: Array<{
-    usuarioId: string;
-    porcentaje?: number;
-    montoCorrespondiente: number;
-  }>;
-}
 
 export const gastoCompartidoService = {
   async obtenerGastosDeGrupo(grupoId: string): Promise<GastoCompartido[]> {
@@ -41,11 +25,8 @@ export const gastoCompartidoService = {
   },
 
   async crearGastoCompartido(dto: CrearGastoCompartidoDTO): Promise<GastoCompartido> {
-    const { movimiento, grupoId, tipoDivision, pagadoPorUsuarioId, participantes } = dto;
-
-    if (!participantes || participantes.length === 0) {
-      throw new Error('Debe haber al menos un participante en el gasto compartido');
-    }
+    const input = gastoCompartidoDtoSchema.parse(dto);
+    const { movimiento, grupoId, tipoDivision, pagadoPorUsuarioId, participantes } = input;
 
     // 👈 Obtenemos el usuario autenticado automáticamente
     const authenticatedUserId = await getAuthenticatedUserId();

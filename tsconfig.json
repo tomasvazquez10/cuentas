@@ -18,6 +18,15 @@
       "@repositories/*": [
         "src/repositories/*"
       ],
+      "@queries/*": [
+        "src/queries/*"
+      ],
+      "@lib/*": [
+        "src/lib/*"
+      ],
+      "@schemas/*": [
+        "src/schemas/*"
+      ],
       "@utils/*": [
         "src/utils/*"
       ],
@@ -30,4 +39,3 @@
     }
   }
 }
-

@@ -18,6 +18,8 @@ export interface Movimiento {
  created_at:string;
 }
 
+export type MovimientoInput = Omit<Movimiento, 'id' | 'created_at' | 'created_by'>;
+
 export interface CalendarioPago {
  id:string;
  fecha:string;
@@ -27,6 +29,11 @@ export interface CalendarioPago {
  created_by:string;
  created_at:string;
 }
+
+export type CalendarioPagoInput = Omit<
+ CalendarioPago,
+ 'id' | 'created_at' | 'created_by'
+>;
 
 export interface DatoTarjeta {
  id: string;
@@ -85,6 +92,7 @@ export interface GastoCompartido {
   created_by: string;
   created_at: string;
   grupo_id: string | null;
+  movimientos?: Pick<Movimiento, 'concepto' | 'monto' | 'fecha' | 'subtipo'> | null;
 }
 
 export interface ParticipanteGasto {

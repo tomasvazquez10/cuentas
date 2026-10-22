@@ -1,7 +1,11 @@
 import { calendarioPagoRepository }
 from '@repositories/calendarioPagoRepository';
 import { authRepository } from '@repositories/authRepository';
-import { CalendarioPago } from '@models/index';
+import { CalendarioPago, CalendarioPagoInput } from '@models/index';
+import {
+  calendarioPagoInputSchema,
+  calendarioPagoUpdateSchema,
+} from '@schemas/financialSchemas';
 
 const getAuthenticatedUserId = async () => {
   const user = await authRepository.currentUser();
@@ -27,22 +31,13 @@ export const calendarioPagoService = {
  },
 
 
- async crear(data:any){
+ async crear(data:CalendarioPagoInput){
 
-   if(!data.servicio)
-      throw new Error(
-        'Servicio requerido'
-      );
-
-
-   if(!data.monto)
-      throw new Error(
-        'Monto requerido'
-      );
-
+   calendarioPagoInputSchema.parse(data);
 
    return calendarioPagoRepository.create({
      ...data,
+     servicio: data.servicio.trim(),
      created_by: await getAuthenticatedUserId(),
    });
 
@@ -53,8 +48,8 @@ export const calendarioPagoService = {
    id:string,
    data:Partial<Pick<CalendarioPago, 'fecha' | 'servicio' | 'monto' | 'pago'>>
  ){
-
-   return calendarioPagoRepository.update(id, data, await getAuthenticatedUserId());
+   const updates = calendarioPagoUpdateSchema.parse(data);
+   return calendarioPagoRepository.update(id, updates, await getAuthenticatedUserId());
 
  },
 

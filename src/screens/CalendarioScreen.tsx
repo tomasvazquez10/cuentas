@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,8 +14,14 @@ import { calendarioPagoService } from '@services/calendarioPagoService';
 import { movimientoService } from '@services/movimientoService';
 import { formatMoney } from '@utils/formatting';
 import { Button, Input, CustomModal, PagoCard, SidebarMenuButton, StatCard, ConfirmDialog } from '@components/index';
-import { CalendarioPago } from '@models/index';
+import { CalendarioPago, CalendarioPagoInput } from '@models/index';
 import { DatePickerField } from '@components/DatePickerField';
+import { usePagosQuery } from '@queries/useServerQueries';
+import { queryKeys } from '@queries/queryKeys';
+import { useAuth } from '@context/AuthContext';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { pagoEdicionFormSchema, pagoFormSchema } from '@schemas/financialSchemas';
+import { getFormErrors, parseLocalizedAmount } from '@schemas/common';
 
 const WEEK_DAYS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 const SERVICE_SUGGESTIONS = ['Edenor', 'Naturgy', 'Internet', 'VISA', 'AMEX', 'MPAGO'];
@@ -53,26 +59,11 @@ const addDays = (date: Date, days: number) => {
   return nextDate;
 };
 
-const parseMonto = (value: string) => {
-  const trimmed = value.trim();
-  const hasComma = trimmed.includes(',');
-  const hasDot = trimmed.includes('.');
-  let normalized = trimmed;
-
-  if (hasComma && hasDot) {
-    normalized = trimmed.replace(/\./g, '').replace(',', '.');
-  } else if (hasComma) {
-    normalized = trimmed.replace(',', '.');
-  } else if (hasDot && !/^\d+\.\d{1,2}$/.test(trimmed)) {
-    normalized = trimmed.replace(/\./g, '');
-  }
-
-  const amount = Number(normalized);
-  return Number.isFinite(amount) ? amount : NaN;
-};
-
 export default function CalendarioScreen() {
-  const [pagos, setPagos] = useState<CalendarioPago[]>([]);
+  const pagosQuery = usePagosQuery();
+  const pagos = pagosQuery.data ?? [];
+  const { userId } = useAuth();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [servicio, setServicio] = useState('');
@@ -100,24 +91,53 @@ export default function CalendarioScreen() {
   const [diasSeleccionados, setDiasSeleccionados] = useState<string[]>([]);
   const [pagoDialog, setPagoDialog] = useState<CalendarioPago | null>(null);
 
-  const loadPagos = async () => {
-    try {
-      setPagos(await calendarioPagoService.listar());
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los pagos');
-    }
-  };
+  const invalidarPagos = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.pagos(userId) });
+
+  const crearPagoMutation = useMutation({
+    mutationFn: (data: CalendarioPagoInput) => calendarioPagoService.crear(data),
+    onSuccess: invalidarPagos,
+  });
+  const actualizarPagoMutation = useMutation({
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: Partial<Pick<CalendarioPago, 'fecha' | 'servicio' | 'monto' | 'pago'>>;
+    }) => calendarioPagoService.actualizar(id, data),
+    onSuccess: invalidarPagos,
+  });
+  const eliminarPagoMutation = useMutation({
+    mutationFn: (id: string) => calendarioPagoService.eliminar(id),
+    onSuccess: invalidarPagos,
+  });
+  const crearMovimientoMutation = useMutation({
+    mutationFn: (data: Parameters<typeof movimientoService.crear>[0]) =>
+      movimientoService.crear(data),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: queryKeys.movimientos(userId) }),
+  });
 
   useFocusEffect(
     useCallback(() => {
-      loadPagos();
-    }, [])
+      void pagosQuery.refetch();
+    }, [pagosQuery.refetch])
   );
+
+  useEffect(() => {
+    if (pagosQuery.isError) {
+      Alert.alert('Error', 'No se pudieron cargar los pagos');
+    }
+  }, [pagosQuery.error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadPagos();
-    setRefreshing(false);
+    try {
+      await pagosQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const resetForm = () => {
@@ -136,21 +156,14 @@ export default function CalendarioScreen() {
   };
 
   const handleCreatePago = async () => {
-    const servicioLimpio = servicio.trim();
-    const montoNumerico = parseMonto(monto);
-    const fechaValida = parseLocalDate(fecha);
-    const nextErrors = {
-      servicio: servicioLimpio ? '' : 'Ingresa el nombre del servicio',
-      monto:
-        Number.isFinite(montoNumerico) && montoNumerico > 0
-          ? ''
-          : 'Ingresa un monto mayor a cero',
-      fecha: fechaValida ? '' : 'Usa una fecha valida con formato YYYY-MM-DD',
-    };
-
-    setFormErrors(nextErrors);
-
-    if (nextErrors.servicio || nextErrors.monto || nextErrors.fecha) {
+    const validation = pagoFormSchema.safeParse({ servicio, monto, fecha });
+    if (!validation.success) {
+      setFormErrors({
+        servicio: '',
+        monto: '',
+        fecha: '',
+        ...getFormErrors(validation.error),
+      });
       return;
     }
 
@@ -158,17 +171,14 @@ export default function CalendarioScreen() {
 
     try {
       setSavingPago(true);
-      const nuevoPago = await calendarioPagoService.crear({
-        fecha: toDateKey(fechaValida),
-        servicio: servicioLimpio,
-        monto: montoNumerico,
+      const { fecha: fechaValidada, servicio: servicioValidado, monto: montoValidado } =
+        validation.data;
+      await crearPagoMutation.mutateAsync({
+        fecha: fechaValidada,
+        servicio: servicioValidado,
+        monto: montoValidado,
         pago: false,
       });
-      setPagos((pagosActuales) =>
-        [...pagosActuales, nuevoPago].sort(
-          (a, b) => getPagoDateKey(a.fecha).localeCompare(getPagoDateKey(b.fecha))
-        )
-      );
       cerrarModal();
       Alert.alert('Exito', 'Pago agregado al calendario');
     } catch (error: any) {
@@ -180,12 +190,10 @@ export default function CalendarioScreen() {
 
   const actualizarEstadoPago = async (pagoId: string, completed: boolean) => {
     try {
-      const pagoActualizado = await calendarioPagoService.actualizar(pagoId, {
-        pago: completed,
+      await actualizarPagoMutation.mutateAsync({
+        id: pagoId,
+        data: { pago: completed },
       });
-      setPagos((pagosActuales) =>
-        pagosActuales.map((pago) => (pago.id === pagoId ? pagoActualizado : pago))
-      );
       return true;
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo actualizar el pago');
@@ -227,30 +235,22 @@ export default function CalendarioScreen() {
   const guardarEdicionPago = async () => {
     if (!pagoSeleccionado) return;
 
-    const montoNumerico = parseMonto(montoEdicion);
-    const fechaValida = parseLocalDate(fechaEdicion);
-    const nextErrors = {
-      monto:
-        Number.isFinite(montoNumerico) && montoNumerico > 0
-          ? ''
-          : 'Ingresa un monto mayor a cero',
-      fecha: fechaValida ? '' : 'Selecciona una fecha válida',
-    };
-    setErroresEdicion(nextErrors);
-
-    if (nextErrors.monto || nextErrors.fecha || guardandoEdicion) return;
+    const validation = pagoEdicionFormSchema.safeParse({
+      monto: montoEdicion,
+      fecha: fechaEdicion,
+    });
+    if (!validation.success) {
+      setErroresEdicion({ monto: '', fecha: '', ...getFormErrors(validation.error) });
+      return;
+    }
+    if (guardandoEdicion) return;
 
     try {
       setGuardandoEdicion(true);
-      const pagoActualizado = await calendarioPagoService.actualizar(pagoSeleccionado.id, {
-        monto: montoNumerico,
-        fecha: toDateKey(fechaValida),
+      await actualizarPagoMutation.mutateAsync({
+        id: pagoSeleccionado.id,
+        data: validation.data,
       });
-      setPagos((pagosActuales) =>
-        pagosActuales
-          .map((pago) => (pago.id === pagoActualizado.id ? pagoActualizado : pago))
-          .sort((a, b) => getPagoDateKey(a.fecha).localeCompare(getPagoDateKey(b.fecha)))
-      );
       cerrarDetallePago();
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo actualizar el pago');
@@ -270,8 +270,7 @@ export default function CalendarioScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await calendarioPagoService.eliminar(pago.id);
-              setPagos((pagosActuales) => pagosActuales.filter((p) => p.id !== pago.id));
+              await eliminarPagoMutation.mutateAsync(pago.id);
               Alert.alert('Éxito', 'Pago eliminado correctamente');
             } catch (error: any) {
               Alert.alert('Error', error?.message || 'No se pudo eliminar el pago');
@@ -298,7 +297,7 @@ export default function CalendarioScreen() {
 
   const crearMovimientoDesdePago = async (pago: CalendarioPago) => {
     try {
-      await movimientoService.crear({
+      await crearMovimientoMutation.mutateAsync({
         concepto: pago.servicio,
         fecha: toDateKey(new Date()),
         tipo: 'GASTO',
@@ -389,7 +388,7 @@ export default function CalendarioScreen() {
   };
 
   const fechaPreview = parseLocalDate(fecha);
-  const montoPreview = parseMonto(monto);
+  const montoPreview = parseLocalizedAmount(monto);
   const claveMesFormularioPago = `${mesFormularioPago.getFullYear()}-${String(
     mesFormularioPago.getMonth() + 1
   ).padStart(2, '0')}`;

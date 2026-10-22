@@ -11,10 +11,10 @@ import {
 import Svg, { Circle } from 'react-native-svg';
 import { useFocusEffect } from '@react-navigation/native';
 import { Movimiento, SubtipoMovimiento, TipoMovimiento } from '@models/index';
-import { movimientoService } from '@services/movimientoService';
 import { colors } from '@utils/colors';
 import { formatMoney } from '@utils/formatting';
 import { CustomModal, SidebarMenuButton, StatCard } from '@components/index';
+import { useMovimientosQuery } from '@queries/useServerQueries';
 
 const TIPOS_MOVIMIENTO: TipoMovimiento[] = ['ENTRADA', 'GASTO', 'AHORRO', 'INVERSION'];
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
@@ -46,8 +46,9 @@ const getMonthKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
 export default function GastosScreen() {
-  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
-  const [loading, setLoading] = useState(false);
+  const movimientosQuery = useMovimientosQuery();
+  const movimientos = movimientosQuery.data ?? [];
+  const loading = movimientosQuery.isLoading;
   const [refreshing, setRefreshing] = useState(false);
   const [mesSeleccionado, setMesSeleccionado] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -88,28 +89,25 @@ export default function GastosScreen() {
 
   const tipoActualLabel = tipoLabels[tipoSeleccionado];
   const tipoActualColor = tipoColores[tipoSeleccionado];
-  const loadMovimientos = async () => {
-    try {
-      setLoading(true);
-      const data = await movimientoService.listar();
-      setMovimientos(data);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudieron cargar los movimientos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useFocusEffect(
     useCallback(() => {
-      void loadMovimientos();
-    }, [])
+      void movimientosQuery.refetch();
+    }, [movimientosQuery.refetch])
   );
+
+  useEffect(() => {
+    if (movimientosQuery.isError) {
+      Alert.alert('Error', 'No se pudieron cargar los movimientos');
+    }
+  }, [movimientosQuery.error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadMovimientos();
-    setRefreshing(false);
+    try {
+      await movimientosQuery.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const cambiarMes = (desplazamiento: number) => {

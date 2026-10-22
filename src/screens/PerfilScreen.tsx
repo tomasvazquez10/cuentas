@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,38 +10,26 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
 import { authService } from '@services/authService';
-import { perfilService } from '@services/perfilService';
 import { Button, Card, ConfirmDialog, SidebarMenuButton } from '@components/index';
-import { Perfil } from '@models/index';
+import { usePerfilQuery } from '@queries/useServerQueries';
 
 export default function PerfilScreen() {
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
-  const [loading, setLoading] = useState(false);
+  const perfilQuery = usePerfilQuery();
+  const perfil = perfilQuery.data ?? null;
   const [confirmandoLogout, setConfirmandoLogout] = useState(false);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
 
-  const loadPerfil = async () => {
-    try {
-      setLoading(true);
-      const user = await authService.getCurrentUser();
-      if (!user) {
-        setPerfil(null);
-        return;
-      }
-      const data = await perfilService.getPerfil(user.id);
-      setPerfil(data);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo cargar el perfil');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useFocusEffect(
     useCallback(() => {
-      loadPerfil();
-    }, [])
+      void perfilQuery.refetch();
+    }, [perfilQuery.refetch])
   );
+
+  useEffect(() => {
+    if (perfilQuery.isError) {
+      Alert.alert('Error', 'No se pudo cargar el perfil');
+    }
+  }, [perfilQuery.error]);
 
   const handleLogout = () => {
     Alert.alert('Cerrar Sesión', '¿Estás seguro?', [
@@ -70,7 +58,7 @@ export default function PerfilScreen() {
     }
   };
 
-  if (loading) {
+  if (perfilQuery.isLoading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color={colors.primary} />

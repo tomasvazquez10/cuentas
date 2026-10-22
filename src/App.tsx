@@ -1,10 +1,10 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { ActivityIndicator, Pressable, StyleSheet, View, Text } from 'react-native';
-import { authService } from '@services/authService';
 import { colors } from '@utils/colors';
+import { useAuth } from '@context/AuthContext';
 
 import AuthScreen from '@screens/AuthScreen';
 import HomeScreen from '@screens/HomeScreen';
@@ -207,39 +207,16 @@ const styles = StyleSheet.create({
 });
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { userId, isLoading } = useAuth();
 
-  useEffect(() => {
-  authService
-    .getCurrentUser()
-    .then((user) => {
-      setSession(user);
-    })
-    .catch((e) => {
-      console.error(e);
-    })
-    .finally(() => {
-      setLoading(false);
-    });
-
-    const {
-      data: { subscription },
-      } = authService.onAuthStateChanged((user) => {
-      setSession(user);
-      });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return <LoadingScreen />;
   }
 
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {session ? (
+        {userId ? (
           <Stack.Screen name="Main" component={AppTabs} />
         ) : (
           <Stack.Screen name="Auth" component={AuthScreen} />
