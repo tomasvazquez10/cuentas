@@ -18,8 +18,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@queries/queryKeys';
 import { useAuth } from '@context/AuthContext';
 import { crearGrupoSchema } from '@schemas/groupSchemas';
+import type { GruposScreenProps } from '@navigation/types';
 
-export default function GruposScreen({ navigation }: any) {
+export default function GruposScreen({ navigation }: GruposScreenProps) {
   const gruposQuery = useGruposConBalanceQuery();
   const gruposConBalances = gruposQuery.data ?? [];
   const grupos = gruposConBalances.map(({ grupo }) => grupo);
@@ -42,8 +43,7 @@ export default function GruposScreen({ navigation }: any) {
   const crearGrupoMutation = useMutation({
     mutationFn: ({ nombre, descripcion }: { nombre: string; descripcion: string }) =>
       grupoService.crearGrupo(nombre, descripcion),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: queryKeys.grupos(userId) }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.grupos(userId) }),
   });
 
   useFocusEffect(
@@ -87,11 +87,11 @@ export default function GruposScreen({ navigation }: any) {
       setNombreGrupo('');
       setDescripcionGrupo('');
       Alert.alert('Éxito', 'Grupo creado correctamente');
-      
+
       // Opcional: Navegar directamente al detalle del grupo recién creado
-      navigation.navigate('GrupoDetalleScreen', { 
-        grupoId: nuevoGrupo.id, 
-        grupoNombre: nuevoGrupo.nombre 
+      navigation.navigate('GrupoDetalleScreen', {
+        grupoId: nuevoGrupo.id,
+        grupoNombre: nuevoGrupo.nombre,
       });
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo crear el grupo');
@@ -100,9 +100,7 @@ export default function GruposScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <SidebarMenuButton />
@@ -178,7 +176,11 @@ export default function GruposScreen({ navigation }: any) {
         onClose={() => setModalGrupoVisible(false)}
         footer={
           <View style={styles.modalFooter}>
-            <Button title="Cancelar" onPress={() => setModalGrupoVisible(false)} variant="secondary" />
+            <Button
+              title="Cancelar"
+              onPress={() => setModalGrupoVisible(false)}
+              variant="secondary"
+            />
             <Button title="Crear" onPress={handleCreateGrupo} variant="primary" />
           </View>
         }

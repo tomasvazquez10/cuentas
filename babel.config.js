@@ -18,6 +18,7 @@ module.exports = function (api) {
             '@queries': './src/queries',
             '@lib': './src/lib',
             '@schemas': './src/schemas',
+            '@navigation': './src/navigation',
             '@utils': './src/utils',
             '@models': './src/types',
             '@navigators': './src/navigators'

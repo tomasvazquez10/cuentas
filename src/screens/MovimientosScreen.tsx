@@ -25,16 +25,23 @@ import {
   DropdownOption,
   SidebarMenuButton,
 } from '@components/index';
-import { Movimiento, MovimientoInput, TipoMovimiento, SubtipoMovimiento, MetodoMovimiento } from '@models/index';
+import {
+  Movimiento,
+  MovimientoInput,
+  TipoMovimiento,
+  SubtipoMovimiento,
+  MetodoMovimiento,
+} from '@models/index';
 import { useMovimientosQuery } from '@queries/useServerQueries';
 import { queryKeys } from '@queries/queryKeys';
 import { useAuth } from '@context/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { movimientoFormSchema } from '@schemas/financialSchemas';
+import type { MovimientosScreenProps } from '@navigation/types';
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
   ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
-  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER', 'VIAJES','SC'],
+  GASTO: ['FIJO', 'BOLUDES', 'DEPTO', 'SALIDAS', 'SUPER', 'VIAJES', 'SC'],
   AHORRO: ['DOLAR'],
   INVERSION: ['CEDEARS'],
 };
@@ -51,7 +58,7 @@ const CUOTAS_OPTIONS: DropdownOption<string>[] = [
 ];
 type MovimientoModalMode = 'create' | 'detail' | 'edit';
 
-export default function MovimientosScreen({ navigation, route }: any) {
+export default function MovimientosScreen({ navigation, route }: MovimientosScreenProps) {
   const movimientosQuery = useMovimientosQuery();
   const movimientos = movimientosQuery.data ?? [];
   const { userId } = useAuth();
@@ -155,15 +162,15 @@ export default function MovimientosScreen({ navigation, route }: any) {
   };
 
   useEffect(() => {
-    const metodoSeleccionado = route?.params?.filtroMetodo as MetodoMovimiento | undefined;
+    const metodoSeleccionado = route.params?.filtroMetodo;
     if (metodoSeleccionado && METODOS.includes(metodoSeleccionado)) {
       setFiltrosMetodo([metodoSeleccionado]);
       navigation.setParams({ filtroMetodo: undefined });
     }
-  }, [navigation, route?.params?.filtroMetodo]);
+  }, [navigation, route.params?.filtroMetodo]);
 
   useEffect(() => {
-    const prefill = route?.params?.prefillMovimiento;
+    const prefill = route.params?.prefillMovimiento;
     if (!prefill) return;
 
     setMovimientoSeleccionado(null);
@@ -180,7 +187,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     setCompraId(undefined);
     setModalVisible(true);
     navigation.setParams({ prefillMovimiento: undefined });
-  }, [navigation, route?.params?.prefillMovimiento]);
+  }, [navigation, route.params?.prefillMovimiento]);
 
   const cargarMovimientoEnFormulario = (movimiento: Movimiento) => {
     setMovimientoSeleccionado(movimiento);
@@ -257,16 +264,14 @@ export default function MovimientosScreen({ navigation, route }: any) {
   };
 
   const cambiarMes = (desplazamiento: number) => {
-    setMesSeleccionado((mes) =>
-      new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1)
-    );
+    setMesSeleccionado((mes) => new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1));
   };
 
   const claveMesSeleccionado = `${mesSeleccionado.getFullYear()}-${String(
     mesSeleccionado.getMonth() + 1
   ).padStart(2, '0')}`;
-  const movimientosDelMes = movimientos.filter((movimiento) =>
-    movimiento.fecha.slice(0, 7) === claveMesSeleccionado
+  const movimientosDelMes = movimientos.filter(
+    (movimiento) => movimiento.fecha.slice(0, 7) === claveMesSeleccionado
   );
   const movimientosFiltrados = movimientosDelMes.filter((movimiento) => {
     const coincideMetodo = filtrosMetodo.includes(movimiento.metodo as MetodoMovimiento);
@@ -276,12 +281,13 @@ export default function MovimientosScreen({ navigation, route }: any) {
       filtrosSubtipoGasto.includes(movimiento.subtipo as SubtipoMovimiento);
 
     const textoBusqueda = busqueda.trim().toLowerCase();
-    const coincideBusqueda = !textoBusqueda || [
-      movimiento.concepto,
-      movimiento.nota,
-      movimiento.subtipo,
-      movimiento.metodo,
-    ].some((valor) => String(valor ?? '').toLowerCase().includes(textoBusqueda));
+    const coincideBusqueda =
+      !textoBusqueda ||
+      [movimiento.concepto, movimiento.nota, movimiento.subtipo, movimiento.metodo].some((valor) =>
+        String(valor ?? '')
+          .toLowerCase()
+          .includes(textoBusqueda)
+      );
 
     return coincideMetodo && coincideTipo && coincideSubtipo && coincideBusqueda;
   });
@@ -290,7 +296,8 @@ export default function MovimientosScreen({ navigation, route }: any) {
       balance + (movimiento.tipo === 'ENTRADA' ? movimiento.monto : -movimiento.monto),
     0
   );
-  const filtroEsTarjeta = filtrosMetodo.length > 0 && filtrosMetodo.every((metodo) => METODOS_TARJETA.includes(metodo));
+  const filtroEsTarjeta =
+    filtrosMetodo.length > 0 && filtrosMetodo.every((metodo) => METODOS_TARJETA.includes(metodo));
   const balanceMostrado = filtroEsTarjeta ? Math.abs(balanceFiltrado) : balanceFiltrado;
   const tituloMes = mesSeleccionado.toLocaleDateString('es-AR', {
     month: 'long',
@@ -338,11 +345,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     setFiltrosSubtipoGasto(SUBTIPOS_POR_TIPO.GASTO);
   };
 
-  const crearCuotasSiguientes = async (
-    datosBase: any,
-    cuotaInicial: number,
-    total: number
-  ) => {
+  const crearCuotasSiguientes = async (datosBase: any, cuotaInicial: number, total: number) => {
     try {
       const [anio, mes, dia] = datosBase.fecha.split('-').map(Number);
       const cuotas = await Promise.all(
@@ -384,10 +387,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
     }
   };
 
-  const guardarCuotaDesdeDialog = async (
-    crearSiguientes: boolean,
-    pendiente = cuotasDialog
-  ) => {
+  const guardarCuotaDesdeDialog = async (crearSiguientes: boolean, pendiente = cuotasDialog) => {
     if (!pendiente) return;
     const { datosMovimiento, cuota, total } = pendiente;
     try {
@@ -421,7 +421,10 @@ export default function MovimientosScreen({ navigation, route }: any) {
       totalCuotas,
     });
     if (!validation.success) {
-      Alert.alert('Error', validation.error.issues[0]?.message || 'Revisa los datos del movimiento');
+      Alert.alert(
+        'Error',
+        validation.error.issues[0]?.message || 'Revisa los datos del movimiento'
+      );
       return;
     }
     const movimiento = validation.data;
@@ -489,7 +492,10 @@ export default function MovimientosScreen({ navigation, route }: any) {
       totalCuotas,
     });
     if (!validation.success) {
-      Alert.alert('Error', validation.error.issues[0]?.message || 'Revisa los datos del movimiento');
+      Alert.alert(
+        'Error',
+        validation.error.issues[0]?.message || 'Revisa los datos del movimiento'
+      );
       return;
     }
     const movimiento = validation.data;
@@ -501,7 +507,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
         data: {
           ...movimiento,
           compra_id: hasCuotas ? compraId : undefined,
-        }
+        },
       });
       cerrarModal();
       Alert.alert('Exito', 'Movimiento actualizado correctamente');
@@ -555,11 +561,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <SidebarMenuButton />
@@ -569,13 +571,21 @@ export default function MovimientosScreen({ navigation, route }: any) {
 
         <View style={styles.filtersPanel}>
           <View style={styles.monthSelector}>
-            <TouchableOpacity accessibilityLabel="Mes anterior" onPress={() => cambiarMes(-1)} style={styles.monthButton}>
+            <TouchableOpacity
+              accessibilityLabel="Mes anterior"
+              onPress={() => cambiarMes(-1)}
+              style={styles.monthButton}
+            >
               <Text style={styles.monthButtonText}>‹</Text>
             </TouchableOpacity>
             <View>
               <Text style={styles.monthTitle}>{tituloMes}</Text>
             </View>
-            <TouchableOpacity accessibilityLabel="Mes siguiente" onPress={() => cambiarMes(1)} style={styles.monthButton}>
+            <TouchableOpacity
+              accessibilityLabel="Mes siguiente"
+              onPress={() => cambiarMes(1)}
+              style={styles.monthButton}
+            >
               <Text style={styles.monthButtonText}>›</Text>
             </TouchableOpacity>
           </View>
@@ -592,17 +602,33 @@ export default function MovimientosScreen({ navigation, route }: any) {
               />
             </View>
             <TouchableOpacity onPress={() => setFiltrosVisibles(true)} style={styles.filtersButton}>
-              <Text style={styles.filtersButtonText}>Filtros{filtrosCuenta > 0 ? ` (${filtrosCuenta})` : ''}</Text>
+              <Text style={styles.filtersButtonText}>
+                Filtros{filtrosCuenta > 0 ? ` (${filtrosCuenta})` : ''}
+              </Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickFilters}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickFilters}
+          >
             {METODOS.map((opcion) => (
               <TouchableOpacity
                 key={opcion}
                 onPress={() => alternarMetodo(opcion)}
-                style={[styles.quickFilter, filtrosMetodo.includes(opcion) && styles.quickFilterSelected]}
+                style={[
+                  styles.quickFilter,
+                  filtrosMetodo.includes(opcion) && styles.quickFilterSelected,
+                ]}
               >
-                <Text style={[styles.quickFilterText, filtrosMetodo.includes(opcion) && styles.quickFilterTextSelected]}>{opcion}</Text>
+                <Text
+                  style={[
+                    styles.quickFilterText,
+                    filtrosMetodo.includes(opcion) && styles.quickFilterTextSelected,
+                  ]}
+                >
+                  {opcion}
+                </Text>
               </TouchableOpacity>
             ))}
             {filtrosCuenta > 0 && (
@@ -618,12 +644,20 @@ export default function MovimientosScreen({ navigation, route }: any) {
             label={balanceLabel}
             value={balanceMostrado}
             type={filtroEsTarjeta ? 'egreso' : 'neutral'}
-            color={filtrosMetodo.length === 1 && filtroEsTarjeta ? getMetodoColor(filtrosMetodo[0]) : undefined}
+            color={
+              filtrosMetodo.length === 1 && filtroEsTarjeta
+                ? getMetodoColor(filtrosMetodo[0])
+                : undefined
+            }
           />
           {filtrosCuenta > 0 && (
             <View style={styles.balanceDetails}>
-              <Text style={styles.balanceDetailPositive}>Entradas {formatMoney(totalEntradas)}</Text>
-              <Text style={styles.balanceDetailNegative}>Gastos {formatMoney(totalGastosFiltrados)}</Text>
+              <Text style={styles.balanceDetailPositive}>
+                Entradas {formatMoney(totalEntradas)}
+              </Text>
+              <Text style={styles.balanceDetailNegative}>
+                Gastos {formatMoney(totalGastosFiltrados)}
+              </Text>
             </View>
           )}
         </View>
@@ -762,7 +796,8 @@ export default function MovimientosScreen({ navigation, route }: any) {
             <View style={styles.installmentWarning}>
               <Text style={styles.installmentWarningTitle}>Crear cuotas siguientes?</Text>
               <Text style={styles.installmentWarningText}>
-                Se generaran las {cuotasPendientes.total - cuotasPendientes.cuota} cuotas restantes en los proximos meses.
+                Se generaran las {cuotasPendientes.total - cuotasPendientes.cuota} cuotas restantes
+                en los proximos meses.
               </Text>
               <View style={styles.installmentActions}>
                 <TouchableOpacity
@@ -796,9 +831,7 @@ export default function MovimientosScreen({ navigation, route }: any) {
               {confirmandoBorrado ? (
                 <View style={styles.deleteWarning}>
                   <Text style={styles.deleteWarningTitle}>Eliminar movimiento?</Text>
-                  <Text style={styles.deleteWarningText}>
-                    Esta accion no se puede deshacer.
-                  </Text>
+                  <Text style={styles.deleteWarningText}>Esta accion no se puede deshacer.</Text>
                   <View style={styles.deleteActions}>
                     <TouchableOpacity
                       onPress={() => setConfirmandoBorrado(false)}
@@ -835,7 +868,11 @@ export default function MovimientosScreen({ navigation, route }: any) {
             <TouchableOpacity onPress={limpiarFiltros} style={styles.sheetClearButton}>
               <Text style={styles.sheetClearText}>Limpiar todo</Text>
             </TouchableOpacity>
-            <Button title="Aplicar filtros" onPress={() => setFiltrosVisibles(false)} variant="primary" />
+            <Button
+              title="Aplicar filtros"
+              onPress={() => setFiltrosVisibles(false)}
+              variant="primary"
+            />
           </View>
         }
       >
@@ -845,9 +882,19 @@ export default function MovimientosScreen({ navigation, route }: any) {
             <TouchableOpacity
               key={opcion}
               onPress={() => alternarMetodo(opcion)}
-              style={[styles.sheetOption, filtrosMetodo.includes(opcion) && { backgroundColor: getMetodoColor(opcion) }]}
+              style={[
+                styles.sheetOption,
+                filtrosMetodo.includes(opcion) && { backgroundColor: getMetodoColor(opcion) },
+              ]}
             >
-              <Text style={[styles.sheetOptionText, filtrosMetodo.includes(opcion) && styles.sheetOptionTextSelected]}>{opcion}</Text>
+              <Text
+                style={[
+                  styles.sheetOptionText,
+                  filtrosMetodo.includes(opcion) && styles.sheetOptionTextSelected,
+                ]}
+              >
+                {opcion}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -857,9 +904,19 @@ export default function MovimientosScreen({ navigation, route }: any) {
             <TouchableOpacity
               key={opcion}
               onPress={() => alternarTipo(opcion)}
-              style={[styles.sheetOption, filtrosTipo.includes(opcion) && styles.sheetOptionSelected]}
+              style={[
+                styles.sheetOption,
+                filtrosTipo.includes(opcion) && styles.sheetOptionSelected,
+              ]}
             >
-              <Text style={[styles.sheetOptionText, filtrosTipo.includes(opcion) && styles.sheetOptionTextSelected]}>{opcion}</Text>
+              <Text
+                style={[
+                  styles.sheetOptionText,
+                  filtrosTipo.includes(opcion) && styles.sheetOptionTextSelected,
+                ]}
+              >
+                {opcion}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -871,9 +928,19 @@ export default function MovimientosScreen({ navigation, route }: any) {
                 <TouchableOpacity
                   key={opcion}
                   onPress={() => alternarSubtipoGasto(opcion)}
-                  style={[styles.sheetOption, filtrosSubtipoGasto.includes(opcion) && styles.sheetOptionSelected]}
+                  style={[
+                    styles.sheetOption,
+                    filtrosSubtipoGasto.includes(opcion) && styles.sheetOptionSelected,
+                  ]}
                 >
-                  <Text style={[styles.sheetOptionText, filtrosSubtipoGasto.includes(opcion) && styles.sheetOptionTextSelected]}>{opcion}</Text>
+                  <Text
+                    style={[
+                      styles.sheetOptionText,
+                      filtrosSubtipoGasto.includes(opcion) && styles.sheetOptionTextSelected,
+                    ]}
+                  >
+                    {opcion}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -895,7 +962,11 @@ export default function MovimientosScreen({ navigation, route }: any) {
       <ConfirmDialog
         visible={!!cuotasDialog}
         title="Crear cuotas siguientes?"
-        message={cuotasDialog ? `Se pueden crear las ${cuotasDialog.total - cuotasDialog.cuota} cuotas restantes en los proximos meses.` : ''}
+        message={
+          cuotasDialog
+            ? `Se pueden crear las ${cuotasDialog.total - cuotasDialog.cuota} cuotas restantes en los proximos meses.`
+            : ''
+        }
         cancelLabel="Solo esta cuota"
         confirmLabel="Crear todas"
         onCancel={() => {
@@ -971,11 +1042,22 @@ const styles = StyleSheet.create({
   },
   filtersButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   quickFilters: { gap: 6, paddingBottom: 2, paddingTop: 8 },
-  quickFilter: { backgroundColor: colors.gray[100], borderRadius: 8, paddingHorizontal: 9, paddingVertical: 5 },
+  quickFilter: {
+    backgroundColor: colors.gray[100],
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
   quickFilterSelected: { backgroundColor: colors.primary },
   quickFilterText: { color: colors.gray[600], fontSize: 10, fontWeight: '700' },
   quickFilterTextSelected: { color: '#fff' },
-  clearQuickFilter: { borderColor: colors.danger, borderRadius: 8, borderWidth: 1, paddingHorizontal: 9, paddingVertical: 5 },
+  clearQuickFilter: {
+    borderColor: colors.danger,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
   clearQuickFilterText: { color: colors.danger, fontSize: 10, fontWeight: '800' },
   monthSelector: {
     flexDirection: 'row',
@@ -1033,15 +1115,35 @@ const styles = StyleSheet.create({
     marginTop: 18,
     marginHorizontal: 20,
   },
-  balanceDetails: { flexDirection: 'row', justifyContent: 'space-between', marginHorizontal: 4, marginTop: -4 },
+  balanceDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 4,
+    marginTop: -4,
+  },
   balanceDetailPositive: { color: colors.success, fontSize: 11, fontWeight: '700' },
   balanceDetailNegative: { color: colors.danger, fontSize: 11, fontWeight: '700' },
-  filterSheetFooter: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  filterSheetFooter: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
   sheetClearButton: { paddingVertical: 12 },
   sheetClearText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
-  sheetSectionTitle: { color: colors.dark, fontSize: 13, fontWeight: '800', marginBottom: 8, marginTop: 8 },
+  sheetSectionTitle: {
+    color: colors.dark,
+    fontSize: 13,
+    fontWeight: '800',
+    marginBottom: 8,
+    marginTop: 8,
+  },
   sheetOptions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  sheetOption: { backgroundColor: colors.gray[100], borderRadius: 10, paddingHorizontal: 11, paddingVertical: 8 },
+  sheetOption: {
+    backgroundColor: colors.gray[100],
+    borderRadius: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
   sheetOptionSelected: { backgroundColor: colors.primary },
   sheetOptionText: { color: colors.gray[600], fontSize: 11, fontWeight: '700' },
   sheetOptionTextSelected: { color: '#fff' },

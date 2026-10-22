@@ -1,19 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '@utils/colors';
-import { authService } from '@services/authService';
 import { Button, Card, ConfirmDialog, SidebarMenuButton } from '@components/index';
 import { usePerfilQuery } from '@queries/useServerQueries';
+import { useAuth } from '@context/AuthContext';
 
 export default function PerfilScreen() {
+  const { signOut } = useAuth();
   const perfilQuery = usePerfilQuery();
   const perfil = perfilQuery.data ?? null;
   const [confirmandoLogout, setConfirmandoLogout] = useState(false);
@@ -31,27 +25,9 @@ export default function PerfilScreen() {
     }
   }, [perfilQuery.error]);
 
-  const handleLogout = () => {
-    Alert.alert('Cerrar Sesión', '¿Estás seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar Sesión',
-        onPress: async () => {
-          try {
-            await authService.signOut();
-            Alert.alert('Éxito', 'Sesión cerrada');
-          } catch (error) {
-            Alert.alert('Error', 'No se pudo cerrar la sesión');
-          }
-        },
-        style: 'destructive',
-      },
-    ]);
-  };
-
   const cerrarSesionConfirmada = async () => {
     try {
-      await authService.signOut();
+      await signOut();
     } catch (error: any) {
       setConfirmandoLogout(false);
       Alert.alert('Error', error?.message || 'No se pudo cerrar la sesion');
@@ -137,8 +113,16 @@ export default function PerfilScreen() {
                     Tendras que volver a ingresar para usar la app.
                   </Text>
                   <View style={styles.logoutActions}>
-                    <Button title="Cancelar" onPress={() => setConfirmandoLogout(false)} variant="secondary" />
-                    <Button title="Cerrar sesion" onPress={() => void cerrarSesionConfirmada()} variant="danger" />
+                    <Button
+                      title="Cancelar"
+                      onPress={() => setConfirmandoLogout(false)}
+                      variant="secondary"
+                    />
+                    <Button
+                      title="Cerrar sesion"
+                      onPress={() => void cerrarSesionConfirmada()}
+                      variant="danger"
+                    />
                   </View>
                 </View>
               )}

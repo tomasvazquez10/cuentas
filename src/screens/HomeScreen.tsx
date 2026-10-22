@@ -14,10 +14,11 @@ import { colors, getMetodoColor } from '@utils/colors';
 import { SidebarMenuButton, StatCard } from '@components/index';
 import { Movimiento, MetodoMovimiento } from '@models/index';
 import { useMovimientosQuery } from '@queries/useServerQueries';
+import type { HomeScreenProps } from '@navigation/types';
 
 const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
 
-export default function HomeScreen({ navigation }: any) {
+export default function HomeScreen({ navigation }: HomeScreenProps) {
   const movimientosQuery = useMovimientosQuery();
   const movimientos = movimientosQuery.data ?? [];
   const [refreshing, setRefreshing] = useState(false);
@@ -54,9 +55,7 @@ export default function HomeScreen({ navigation }: any) {
     );
 
   const cambiarMes = (desplazamiento: number) => {
-    setMesSeleccionado((mes) =>
-      new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1)
-    );
+    setMesSeleccionado((mes) => new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1));
   };
 
   const claveMes = `${mesSeleccionado.getFullYear()}-${String(
@@ -75,9 +74,7 @@ export default function HomeScreen({ navigation }: any) {
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <ScrollView
         style={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -86,46 +83,46 @@ export default function HomeScreen({ navigation }: any) {
           </View>
         </View>
 
-      <View style={styles.monthSelector}>
-        <TouchableOpacity
-          accessibilityLabel="Mes anterior"
-          onPress={() => cambiarMes(-1)}
-          style={styles.monthButton}
-        >
-          <Text style={styles.monthButtonText}>‹</Text>
-        </TouchableOpacity>
-        <View>
-          <Text style={styles.monthTitle}>{tituloMes}</Text>
+        <View style={styles.monthSelector}>
+          <TouchableOpacity
+            accessibilityLabel="Mes anterior"
+            onPress={() => cambiarMes(-1)}
+            style={styles.monthButton}
+          >
+            <Text style={styles.monthButtonText}>‹</Text>
+          </TouchableOpacity>
+          <View>
+            <Text style={styles.monthTitle}>{tituloMes}</Text>
+          </View>
+          <TouchableOpacity
+            accessibilityLabel="Mes siguiente"
+            onPress={() => cambiarMes(1)}
+            style={styles.monthButton}
+          >
+            <Text style={styles.monthButtonText}>›</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          accessibilityLabel="Mes siguiente"
-          onPress={() => cambiarMes(1)}
-          style={styles.monthButton}
-        >
-          <Text style={styles.monthButtonText}>›</Text>
-        </TouchableOpacity>
-      </View>
 
-      <View style={styles.statsContainer}>
-        <Text style={styles.sectionTitle}>Balance general</Text>
-        <StatCard label="Saldo disponible" value={balanceGeneral} type="neutral" />
-      </View>
+        <View style={styles.statsContainer}>
+          <Text style={styles.sectionTitle}>Balance general</Text>
+          <StatCard label="Saldo disponible" value={balanceGeneral} type="neutral" />
+        </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Por metodo de pago</Text>
-        {METODOS.map((metodo) => (
-          <StatCard
-            key={metodo}
-            label={metodo}
-            value={calcularBalance(
-              movimientosDelMes.filter((movimiento) => movimiento.metodo === metodo)
-            )}
-            type="neutral"
-            color={getMetodoColor(metodo)}
-            onPress={() => navigation.navigate('Movimientos', { filtroMetodo: metodo })}
-          />
-        ))}
-      </View>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Por metodo de pago</Text>
+          {METODOS.map((metodo) => (
+            <StatCard
+              key={metodo}
+              label={metodo}
+              value={calcularBalance(
+                movimientosDelMes.filter((movimiento) => movimiento.metodo === metodo)
+              )}
+              type="neutral"
+              color={getMetodoColor(metodo)}
+              onPress={() => navigation.navigate('Movimientos', { filtroMetodo: metodo })}
+            />
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

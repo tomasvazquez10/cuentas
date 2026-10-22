@@ -34,6 +34,7 @@ import { useAuth } from '@context/AuthContext';
 import { queryKeys } from '@queries/queryKeys';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { gastoCompartidoFormSchema } from '@schemas/groupSchemas';
+import type { GrupoDetalleScreenProps } from '@navigation/types';
 
 const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
   ENTRADA: ['SUELDO', 'BONO', 'OTRO'],
@@ -44,8 +45,8 @@ const SUBTIPOS_POR_TIPO: Record<TipoMovimiento, SubtipoMovimiento[]> = {
 const TIPOS_MOVIMIENTO: TipoMovimiento[] = ['ENTRADA', 'GASTO', 'AHORRO', 'INVERSION'];
 const METODOS: MetodoMovimiento[] = ['EFECTIVO', 'VISA', 'AMEX', 'MERCADOPAGO'];
 
-export default function GrupoDetalleScreen({ navigation, route }: any) {
-  const { grupoId, grupoNombre } = route.params || {};
+export default function GrupoDetalleScreen({ navigation, route }: GrupoDetalleScreenProps) {
+  const { grupoId, grupoNombre } = route.params;
   const grupoDetalleQuery = useGrupoDetalleQuery(grupoId);
   const grupo = grupoDetalleQuery.data?.grupo ?? null;
   const miembros = grupoDetalleQuery.data?.miembros ?? [];
@@ -129,12 +130,12 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
     value,
   }));
 
-  const subtipoOptions: DropdownOption<SubtipoMovimiento>[] = SUBTIPOS_POR_TIPO[
-    tipoMovimiento
-  ].map((value) => ({
-    label: toOptionLabel(value),
-    value,
-  }));
+  const subtipoOptions: DropdownOption<SubtipoMovimiento>[] = SUBTIPOS_POR_TIPO[tipoMovimiento].map(
+    (value) => ({
+      label: toOptionLabel(value),
+      value,
+    })
+  );
 
   const metodoOptions: DropdownOption<MetodoMovimiento>[] = METODOS.map((value) => ({
     label: toOptionLabel(value),
@@ -262,16 +263,11 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
     }
   };
 
-  const totalGastosGrupo = gastos.reduce(
-    (acc, gasto) => acc + (gasto.movimientos?.monto ?? 0),
-    0
-  );
+  const totalGastosGrupo = gastos.reduce((acc, gasto) => acc + (gasto.movimientos?.monto ?? 0), 0);
 
   return (
     <View style={styles.container}>
-      <ScrollView
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      >
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}>
         <View style={styles.header}>
           <View style={styles.headerTitleRow}>
             <TouchableOpacity
@@ -285,15 +281,13 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
               {grupo?.nombre || grupoNombre || 'Grupo'}
             </Text>
           </View>
-          <Text style={styles.headerSubtitle}>{grupo?.descripcion || 'Gastos compartidos del grupo'}</Text>
+          <Text style={styles.headerSubtitle}>
+            {grupo?.descripcion || 'Gastos compartidos del grupo'}
+          </Text>
         </View>
 
         <View style={styles.balanceContainer}>
-          <StatCard
-            label="Total Gastado en el Grupo"
-            value={totalGastosGrupo}
-            type="egreso"
-          />
+          <StatCard label="Total Gastado en el Grupo" value={totalGastosGrupo} type="egreso" />
         </View>
         {/* Seccion de Miembros */}
         <View style={styles.sectionContainer}>
@@ -313,7 +307,11 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
             </View>
           </TouchableOpacity>
           {miembrosExpanded && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.miembrosScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.miembrosScroll}
+            >
               {miembros.map((m) => (
                 <View key={m.id} style={styles.miembroChip}>
                   <Text style={styles.miembroAvatar}>{getMiembroInicial(m)}</Text>
@@ -422,12 +420,16 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
                   onPress={() => setPagadoPorUsuarioId(m.usuario_id)}
                   style={[styles.memberOption, selected && styles.memberOptionSelected]}
                 >
-                  <View style={[styles.memberOptionMark, selected && styles.memberOptionMarkSelected]}>
+                  <View
+                    style={[styles.memberOptionMark, selected && styles.memberOptionMarkSelected]}
+                  >
                     {selected && <Text style={styles.memberOptionMarkText}>OK</Text>}
                   </View>
                   <View style={styles.memberOptionContent}>
                     <Text style={styles.memberOptionName}>{getMiembroNombre(m)}</Text>
-                    <Text style={styles.memberOptionMeta}>{m.usuario_id === userId ? 'Usuario actual' : m.rol}</Text>
+                    <Text style={styles.memberOptionMeta}>
+                      {m.usuario_id === userId ? 'Usuario actual' : m.rol}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -445,7 +447,9 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
                   onPress={() => toggleParticipante(m.usuario_id)}
                   style={[styles.memberOption, selected && styles.memberOptionSelected]}
                 >
-                  <View style={[styles.memberOptionMark, selected && styles.memberOptionMarkSelected]}>
+                  <View
+                    style={[styles.memberOptionMark, selected && styles.memberOptionMarkSelected]}
+                  >
                     {selected && <Text style={styles.memberOptionMarkText}>OK</Text>}
                   </View>
                   <View style={styles.memberOptionContent}>
@@ -458,7 +462,7 @@ export default function GrupoDetalleScreen({ navigation, route }: any) {
               );
             })}
           </View>
-</View>
+        </View>
       </CustomModal>
 
       {/* Diálogo de Confirmación de Borrado */}

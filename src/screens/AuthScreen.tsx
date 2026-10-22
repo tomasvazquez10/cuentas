@@ -9,14 +9,15 @@ import {
   Alert,
 } from 'react-native';
 import { colors } from '@utils/colors';
-import { authService } from '@services/authService';
 import { Button, Input } from '@components/index';
 import { signInSchema, signUpFormSchema } from '@schemas/authSchemas';
 import { getFormErrors } from '@schemas/common';
+import { useAuth } from '@context/AuthContext';
 
 type AuthMode = 'login' | 'signup';
 
 export default function AuthScreen() {
+  const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,7 +35,7 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      await authService.signIn(validation.data.email, validation.data.password);
+      await signIn(validation.data.email, validation.data.password);
       Alert.alert('Éxito', 'Inicio de sesión exitoso');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Error al iniciar sesión');
@@ -57,15 +58,8 @@ export default function AuthScreen() {
 
     setLoading(true);
     try {
-      await authService.signUp(
-        validation.data.email,
-        validation.data.password,
-        validation.data.nombre
-      );
-      Alert.alert(
-        'Éxito',
-        'Cuenta creada. Por favor verifica tu email antes de iniciar sesión'
-      );
+      await signUp(validation.data.email, validation.data.password, validation.data.nombre);
+      Alert.alert('Éxito', 'Cuenta creada. Por favor verifica tu email antes de iniciar sesión');
       setMode('login');
       setEmail('');
       setPassword('');
@@ -138,9 +132,7 @@ export default function AuthScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.switchText}>
-              {mode === 'login'
-                ? '¿No tienes cuenta? '
-                : '¿Ya tienes cuenta? '}
+              {mode === 'login' ? '¿No tienes cuenta? ' : '¿Ya tienes cuenta? '}
             </Text>
             <Text
               style={styles.switchLink}

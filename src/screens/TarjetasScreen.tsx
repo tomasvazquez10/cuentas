@@ -14,12 +14,13 @@ import { colors, getMetodoColor } from '@utils/colors';
 import { formatDate, formatMoney } from '@utils/formatting';
 import { Movimiento } from '@models/index';
 import { useMovimientosQuery, useTarjetasPeriodoQuery } from '@queries/useServerQueries';
+import type { TarjetasScreenProps } from '@navigation/types';
 
 const TARJETAS = ['VISA', 'AMEX', 'MERCADOPAGO'] as const;
 type Tarjeta = (typeof TARJETAS)[number];
 type VistaTarjetas = 'mes' | 'anio';
 
-export default function TarjetasScreen({ navigation }: any) {
+export default function TarjetasScreen({ navigation }: TarjetasScreenProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [vistaSeleccionada, setVistaSeleccionada] = useState<VistaTarjetas>('mes');
   const [tarjetaAnualSeleccionada, setTarjetaAnualSeleccionada] = useState<Tarjeta>('VISA');
@@ -57,15 +58,11 @@ export default function TarjetasScreen({ navigation }: any) {
   };
 
   const cambiarMes = (desplazamiento: number) => {
-    setMesSeleccionado((mes) =>
-      new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1)
-    );
+    setMesSeleccionado((mes) => new Date(mes.getFullYear(), mes.getMonth() + desplazamiento, 1));
   };
 
   const cambiarAnio = (desplazamiento: number) => {
-    setMesSeleccionado((mes) =>
-      new Date(mes.getFullYear() + desplazamiento, mes.getMonth(), 1)
-    );
+    setMesSeleccionado((mes) => new Date(mes.getFullYear() + desplazamiento, mes.getMonth(), 1));
   };
 
   const calcularBalance = (items: Movimiento[]) =>
@@ -80,8 +77,7 @@ export default function TarjetasScreen({ navigation }: any) {
   ).padStart(2, '0')}`;
   const movimientosDelMes = movimientos.filter(
     (movimiento) =>
-      movimiento.fecha.slice(0, 7) === claveMes &&
-      TARJETAS.includes(movimiento.metodo as Tarjeta)
+      movimiento.fecha.slice(0, 7) === claveMes && TARJETAS.includes(movimiento.metodo as Tarjeta)
   );
   const totalesPorTarjeta = TARJETAS.map((tarjeta) => {
     const balance = calcularBalance(
@@ -103,8 +99,7 @@ export default function TarjetasScreen({ navigation }: any) {
     const totales = TARJETAS.map((tarjeta) => {
       const movimientosTarjetaMes = movimientos.filter(
         (movimiento) =>
-          movimiento.fecha.slice(0, 7) === claveMesAnual &&
-          movimiento.metodo === tarjeta
+          movimiento.fecha.slice(0, 7) === claveMesAnual && movimiento.metodo === tarjeta
       );
 
       return {
@@ -125,40 +120,37 @@ export default function TarjetasScreen({ navigation }: any) {
   });
   const totalesAnualesSeleccionados = totalesPorMes.map((item) => ({
     mes: item.mes,
-    total:
-      item.totales.find((total) => total.tarjeta === tarjetaAnualSeleccionada)?.total ?? 0,
+    total: item.totales.find((total) => total.tarjeta === tarjetaAnualSeleccionada)?.total ?? 0,
   }));
-  const maximoTotalAnual = Math.max(
-    ...totalesAnualesSeleccionados.map((item) => item.total),
-    1
-  );
+  const maximoTotalAnual = Math.max(...totalesAnualesSeleccionados.map((item) => item.total), 1);
   const colorTarjetaAnual = getMetodoColor(tarjetaAnualSeleccionada);
-  const periodSelector = vistaSeleccionada === 'mes' ? (
-    <View style={styles.periodSelector}>
-      <TouchableOpacity onPress={() => cambiarMes(-1)} style={styles.periodButton}>
-        <Text style={styles.periodButtonText}>{'<'}</Text>
-      </TouchableOpacity>
-      <View>
-        <Text style={styles.periodTitle}>{tituloMes}</Text>
+  const periodSelector =
+    vistaSeleccionada === 'mes' ? (
+      <View style={styles.periodSelector}>
+        <TouchableOpacity onPress={() => cambiarMes(-1)} style={styles.periodButton}>
+          <Text style={styles.periodButtonText}>{'<'}</Text>
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.periodTitle}>{tituloMes}</Text>
+        </View>
+        <TouchableOpacity onPress={() => cambiarMes(1)} style={styles.periodButton}>
+          <Text style={styles.periodButtonText}>{'>'}</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={() => cambiarMes(1)} style={styles.periodButton}>
-        <Text style={styles.periodButtonText}>{'>'}</Text>
-      </TouchableOpacity>
-    </View>
-  ) : (
-    <View style={styles.periodSelector}>
-      <TouchableOpacity onPress={() => cambiarAnio(-1)} style={styles.periodButton}>
-        <Text style={styles.periodButtonText}>{'<'}</Text>
-      </TouchableOpacity>
-      <View>
-        <Text style={styles.periodLabel}>AÑO SELECCIONADO</Text>
-        <Text style={styles.periodTitle}>{anioSeleccionado}</Text>
+    ) : (
+      <View style={styles.periodSelector}>
+        <TouchableOpacity onPress={() => cambiarAnio(-1)} style={styles.periodButton}>
+          <Text style={styles.periodButtonText}>{'<'}</Text>
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.periodLabel}>AÑO SELECCIONADO</Text>
+          <Text style={styles.periodTitle}>{anioSeleccionado}</Text>
+        </View>
+        <TouchableOpacity onPress={() => cambiarAnio(1)} style={styles.periodButton}>
+          <Text style={styles.periodButtonText}>{'>'}</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity onPress={() => cambiarAnio(1)} style={styles.periodButton}>
-        <Text style={styles.periodButtonText}>{'>'}</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
 
   return (
     <ScrollView
@@ -178,7 +170,12 @@ export default function TarjetasScreen({ navigation }: any) {
             onPress={() => setVistaSeleccionada('mes')}
             style={[styles.viewOption, vistaSeleccionada === 'mes' && styles.viewOptionSelected]}
           >
-            <Text style={[styles.viewOptionText, vistaSeleccionada === 'mes' && styles.viewOptionTextSelected]}>
+            <Text
+              style={[
+                styles.viewOptionText,
+                vistaSeleccionada === 'mes' && styles.viewOptionTextSelected,
+              ]}
+            >
               Mes
             </Text>
           </TouchableOpacity>
@@ -186,7 +183,12 @@ export default function TarjetasScreen({ navigation }: any) {
             onPress={() => setVistaSeleccionada('anio')}
             style={[styles.viewOption, vistaSeleccionada === 'anio' && styles.viewOptionSelected]}
           >
-            <Text style={[styles.viewOptionText, vistaSeleccionada === 'anio' && styles.viewOptionTextSelected]}>
+            <Text
+              style={[
+                styles.viewOptionText,
+                vistaSeleccionada === 'anio' && styles.viewOptionTextSelected,
+              ]}
+            >
               Totales año
             </Text>
           </TouchableOpacity>
@@ -211,7 +213,12 @@ export default function TarjetasScreen({ navigation }: any) {
                 <TouchableOpacity
                   key={item.tarjeta}
                   activeOpacity={0.82}
-                  onPress={() => navigation.navigate('Movimientos', { filtroMetodo: item.tarjeta })}
+                  onPress={() =>
+                    navigation.navigate('Tabs', {
+                      screen: 'Movimientos',
+                      params: { filtroMetodo: item.tarjeta },
+                    })
+                  }
                   style={styles.cardRow}
                 >
                   <View style={[styles.cardAccent, { backgroundColor: item.color }]} />
@@ -291,8 +298,10 @@ export default function TarjetasScreen({ navigation }: any) {
                   <Text style={styles.annualChartTitle}>{tarjetaAnualSeleccionada}</Text>
                   <Text style={styles.annualChartSubtitle}>Consumo mensual</Text>
                 </View>
-                <Text style={[styles.annualChartTotal, { color: colorTarjetaAnual }]}> 
-                  {formatMoney(totalesAnualesSeleccionados.reduce((sum, item) => sum + item.total, 0))}
+                <Text style={[styles.annualChartTotal, { color: colorTarjetaAnual }]}>
+                  {formatMoney(
+                    totalesAnualesSeleccionados.reduce((sum, item) => sum + item.total, 0)
+                  )}
                 </Text>
               </View>
 
@@ -314,7 +323,6 @@ export default function TarjetasScreen({ navigation }: any) {
                   </View>
                 ))}
               </View>
-
             </View>
 
             <View style={styles.annualTotalsList}>
