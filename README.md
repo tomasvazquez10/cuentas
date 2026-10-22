@@ -37,13 +37,8 @@ Una aplicación móvil desarrollada con React Native y Expo para gestionar tus g
 
 ### Requisitos previos
 
-- Node.js (v14 o superior)
+- Node.js v18 o superior (se recomienda v20 LTS)
 - npm o yarn
-- Expo CLI
-
-```bash
-npm install -g expo-cli
-```
 
 ### Pasos de instalación
 
@@ -61,11 +56,7 @@ npm install -g expo-cli
    ```
 
 3. **Configurar variables de entorno**
-   ```bash
-   cp .env.example .env.local
-   ```
-   
-   Edita `.env.local` y añade tus credenciales de Supabase:
+   Crea un archivo `.env.local` en la raíz del proyecto y añade tus credenciales de Supabase:
    ```
    EXPO_PUBLIC_SUPABASE_URL=tu_url_supabase
    EXPO_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
@@ -73,25 +64,10 @@ npm install -g expo-cli
 
 4. **Iniciar la aplicación**
    ```bash
-   npm start
-   # o
-   yarn start
+   npx expo start
    ```
 
-5. **Ejecutar en iOS (macOS)**
-   ```bash
-   i
-   ```
-
-6. **Ejecutar en Android**
-   ```bash
-   a
-   ```
-
-7. **Ejecutar en web**
-   ```bash
-   w
-   ```
+   Dentro de la terminal de Expo, usa los atajos de teclado: `i` para iOS (macOS), `a` para Android y `w` para web.
 
 ## 📁 Estructura del Proyecto
 
@@ -189,17 +165,20 @@ npm start
 # Ejecutar linter
 npm run lint
 
-# Arreglar errores de linting
-npm run lint:fix
-
-# Formatear código
-npm run format
-
 # Ejecutar tests
 npm test
 
-# Compilar para producción
-npm run build
+# Iniciar en Android
+npm run android
+
+# Iniciar en iOS
+npm run ios
+
+# Iniciar en web
+npm run web
+
+# Verificar tipos TypeScript
+npm run type-check
 ```
 
 ## 🔌 Integración con Supabase
@@ -253,29 +232,43 @@ Los tests se encuentran en archivos `.test.ts` o `.test.tsx` en cada módulo.
 
 ## 📱 Deployment
 
-### Deploy en Expo
+### Builds y actualizaciones con EAS
 
-1. Crea una cuenta en [expo.dev](https://expo.dev)
-2. Inicia sesión con Expo CLI:
+1. Instala EAS CLI globalmente:
    ```bash
-   expo login
+   npm install -g eas-cli
    ```
-3. Publica la app:
+   También puedes anteponer `npx eas-cli` a cada comando `eas` para ejecutarlo sin instalación global.
+2. Inicia sesión y configura el proyecto:
    ```bash
-   expo publish
+   eas login
+   eas build:configure
    ```
 
-### Build de APK (Android)
+3. Genera un build para Android:
+   ```bash
+   eas build --platform android
+   ```
 
-```bash
-expo build:android
-```
+   Para generar un APK, usa el perfil `preview`:
+   ```bash
+   eas build --platform android --profile preview
+   ```
 
-### Build de IPA (iOS)
+4. Genera un build para iOS:
+   ```bash
+   eas build --platform ios
+   ```
 
-```bash
-expo build:ios
-```
+5. Publica actualizaciones OTA:
+   ```bash
+   eas update
+   ```
+
+6. Envía los builds a las tiendas:
+   ```bash
+   eas submit
+   ```
 
 ## 🤝 Contribuciones
 
@@ -289,7 +282,7 @@ Las contribuciones son bienvenidas. Por favor:
 
 ## 📝 Licencia
 
-Este proyecto está bajo la licencia MIT. Ver el archivo `LICENSE` para más detalles.
+El proyecto declara la licencia MIT; falta incluir el archivo `LICENSE` con el texto completo de esa licencia.
 
 ## 📞 Contacto
 
